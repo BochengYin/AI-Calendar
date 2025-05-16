@@ -14,8 +14,13 @@ export const Chatbot = ({ onEventAdded }) => {
   const [messages, setMessages] = useState([
     { 
       id: 1, 
-      text: 'Hi! I\'m your calendar assistant. Tell me about an event you want to add to your calendar.', 
+      text: "Hi! I'm your calendar assistant. Tell me about an event you want to add to your calendar.", 
       sender: 'bot' 
+    },
+    {
+      id: 2,
+      text: "Here are some examples of what you can say:\n• \"Schedule a meeting with Mike tomorrow at 2pm\"\n• \"Reschedule my Friday meeting to Monday at 10am\"\n• \"Delete the meeting with Bocheng on Sunday\"\n• \"Cancel my coffee meeting on Friday\"",
+      sender: 'bot'
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);

@@ -78,8 +78,32 @@ An intelligent calendar application that uses AI to manage your events through n
 
 1. **Create an event**: Type a message like "Schedule a meeting with Alex tomorrow at 2pm"
 2. **Reschedule an event**: Type "Reschedule my meeting with Alex to Friday at 3pm"
-3. **Delete an event**: Type "Delete my meeting with Alex"
+3. **Delete an event**: Use one of these phrases:
+   - "Delete my meeting with Alex"
+   - "Delete the meeting on Friday morning"
+   - "Cancel my 2pm meeting tomorrow"
+   - "Remove the coffee meeting with Bocheng"
+
+For deletion to work properly, include specific details about the event such as:
+- The event title
+- The person involved
+- The date/time of the meeting
+- Any other unique identifiers
+
 4. **View event details**: Click on any event in the calendar
+
+### Example Interactions
+
+```
+User: "Schedule a meeting with Bocheng tomorrow at 8am"
+AI: "I've scheduled your meeting with Bocheng for tomorrow at 8 AM."
+
+User: "Reschedule this meeting to Sunday at 10 o'clock and only have 30 mins"
+AI: "The meeting has been rescheduled to Sunday at 10:00 AM for 30 minutes."
+
+User: "Delete the meeting with Bocheng on Sunday"
+AI: "The meeting with Bocheng on Sunday has been deleted."
+```
 
 ## Project Structure
 
