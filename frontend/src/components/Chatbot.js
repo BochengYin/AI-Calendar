@@ -158,6 +158,14 @@ export const Chatbot = ({ onEventAdded }) => {
     setInput('');
     setIsLoading(true);
     
+    // Scroll to bottom after adding a message
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.chat-messages');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
+    
     debug('Sending message to backend', input);
     
     try {
@@ -178,8 +186,14 @@ export const Chatbot = ({ onEventAdded }) => {
       
       // If an event was created, notify the parent component
       if (response.data.event) {
-        debug('Event created', response.data.event);
-        onEventAdded(response.data.event);
+        debug('Event operation:', response.data.event);
+        
+        // Pass both the event and action to the parent
+        onEventAdded({
+          event: response.data.event,
+          action: response.data.action || 'create',
+          message: response.data.message
+        });
       } else {
         debug('No event created from this message');
       }
@@ -215,6 +229,14 @@ export const Chatbot = ({ onEventAdded }) => {
     }
   };
 
+  // Ensure scroll to bottom when messages change
+  useEffect(() => {
+    const chatContainer = document.querySelector('.chat-messages');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [messages]);
+
   return (
     <div className="chatbot">
       <h3 className="mb-3">✨ Calendar Assistant</h3>
@@ -229,45 +251,47 @@ export const Chatbot = ({ onEventAdded }) => {
           </button>
         </div>
       )}
-      <div className="chat-messages">
-        {messages.map((message) => (
-          <div 
-            key={message.id} 
-            className={`message ${message.sender === 'user' ? 'user-message' : 
-              message.sender === 'system' ? 'system-message' : 'bot-message'}`}
-          >
-            {message.sender === 'user' && <span className="message-prefix">👤 </span>}
-            {message.sender === 'bot' && <span className="message-prefix">💬 </span>}
-            {message.text}
-          </div>
-        ))}
-        {isLoading && (
-          <div className="message bot-message">
-            <div className="typing-indicator">
-              <span></span>
-              <span></span>
-              <span></span>
+      <div className="chat-container">
+        <div className="chat-messages">
+          {messages.map((message) => (
+            <div 
+              key={message.id} 
+              className={`message ${message.sender === 'user' ? 'user-message' : 
+                message.sender === 'system' ? 'system-message' : 'bot-message'}`}
+            >
+              {message.sender === 'user' && <span className="message-prefix">👤 </span>}
+              {message.sender === 'bot' && <span className="message-prefix">💬 </span>}
+              {message.text}
             </div>
-          </div>
-        )}
+          ))}
+          {isLoading && (
+            <div className="message bot-message">
+              <div className="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          )}
+        </div>
+        <form onSubmit={handleSubmit} className="chat-input-container">
+          <input
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            placeholder="Tell me about an event to add..."
+            className="chat-input"
+            disabled={isLoading || backendStatus === 'disconnected'}
+          />
+          <button 
+            type="submit" 
+            className="send-button"
+            disabled={isLoading || !input.trim() || backendStatus === 'disconnected'}
+          >
+            Send
+          </button>
+        </form>
       </div>
-      <form onSubmit={handleSubmit} className="chat-input-container">
-        <input
-          type="text"
-          value={input}
-          onChange={handleInputChange}
-          placeholder="Tell me about an event to add..."
-          className="chat-input"
-          disabled={isLoading || backendStatus === 'disconnected'}
-        />
-        <button 
-          type="submit" 
-          className="send-button"
-          disabled={isLoading || !input.trim() || backendStatus === 'disconnected'}
-        >
-          Send
-        </button>
-      </form>
     </div>
   );
 }; 

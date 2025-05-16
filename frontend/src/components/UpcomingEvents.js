@@ -4,10 +4,27 @@ import moment from 'moment';
 export const UpcomingEvents = ({ events }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Filter out deleted events and sort by start date
+  // Filter events: remove deleted ones and filter duplicates by title + date 
   const upcomingEvents = events
-    .filter(event => !event.isDeleted)
-    .sort((a, b) => moment(a.start).diff(moment(b.start)));
+    .filter(event => !event.isDeleted) // Remove deleted events
+    .sort((a, b) => moment(a.start).diff(moment(b.start))) // Sort by date
+    .reduce((unique, event) => {
+      // Avoid duplicates with same title and same date
+      const eventDate = moment(event.start).format('YYYY-MM-DD');
+      const eventKey = `${event.title}-${eventDate}`;
+      
+      // Check if we already have an event with this title on this date
+      const exists = unique.some(e => {
+        const existingDate = moment(e.start).format('YYYY-MM-DD');
+        return e.title === event.title && existingDate === eventDate;
+      });
+      
+      if (!exists) {
+        unique.push(event);
+      }
+      
+      return unique;
+    }, []);
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
@@ -26,7 +43,7 @@ export const UpcomingEvents = ({ events }) => {
         <div className="upcoming-events-content">
           {upcomingEvents.length > 0 ? (
             upcomingEvents.map((event, index) => (
-              <div key={index} className="upcoming-event-card">
+              <div key={event.id || index} className="upcoming-event-card">
                 <div className="event-date">
                   <div className="event-day">
                     {moment(event.start).format('DD')}

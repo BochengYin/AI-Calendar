@@ -137,7 +137,12 @@ def process_event_request(user_message):
             If the user refers to "this meeting" or "the event" without specifics, use the most recently discussed event.
             
             If the user wants to DELETE an event, extract information about which event to delete and include 
-            "action": "delete" in your response.
+            "action": "delete" in your response. For deletion, you only need to provide:
+            1. The title of the event (use generic "meeting" if a specific title isn't mentioned)
+            2. The date of the event if mentioned (e.g., "tomorrow", "Friday", etc.)
+            
+            Even if the user is vague like "delete the meeting tomorrow", still try to extract what you can
+            (e.g., title: "meeting", start: "[tomorrow's date]").
             
             If the user wants to RESCHEDULE an event, extract the original event details along with the new time, and include
             "action": "reschedule" in your response.
@@ -160,7 +165,7 @@ def process_event_request(user_message):
             {
                 "event": {
                     "title": "Event title to delete",
-                    "start": "ISO date string of original event" (if available)
+                    "start": "ISO date string of original event" (optional, but include if known)
                 },
                 "message": "Your response to the user",
                 "action": "delete"
@@ -194,7 +199,20 @@ def process_event_request(user_message):
         if last_mentioned_events:
             context = "Recent events discussed:\n"
             for event in last_mentioned_events:
-                context += f"- {event['title']} on {event['start']} to {event['end']}\n"
+                # Safely format the event context with error handling for missing fields
+                event_summary = f"- {event.get('title', 'Untitled event')}"
+                
+                if 'start' in event:
+                    event_summary += f" on {event['start']}"
+                
+                if 'end' in event:
+                    event_summary += f" to {event['end']}"
+                elif 'action' in event and event['action'] == 'delete':
+                    # For delete actions, end date isn't necessary
+                    pass
+                
+                context += event_summary + "\n"
+            
             messages.append({"role": "system", "content": context})
         
         # Add conversation history (up to 5 previous exchanges)

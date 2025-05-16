@@ -382,10 +382,10 @@ body {
   transition: all 0.3s ease;
   width: 100%;
   min-height: 50px;
-  max-height: calc(100vh - 580px);
-  overflow-y: auto;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .upcoming-events.collapsed {
@@ -402,6 +402,7 @@ body {
   border-bottom: 1px solid var(--apple-gray1);
   cursor: pointer;
   min-height: 50px;
+  flex-shrink: 0;
 }
 
 .upcoming-events-header:hover {
@@ -435,8 +436,9 @@ body {
 }
 
 .upcoming-events-content {
-  padding: 0;
   overflow-y: auto;
+  flex-grow: 1;
+  height: calc(100% - 50px);
 }
 
 .upcoming-event-card {
@@ -589,6 +591,7 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  height: 100%;
 }
 
 .chatbot {
@@ -603,10 +606,19 @@ body {
   font-weight: 500;
   font-size: 1.2rem;
   color: var(--system-label);
+  flex-shrink: 0;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: calc(100% - 40px);
+  overflow: hidden;
 }
 
 .chat-messages {
-  flex-grow: 1;
+  flex: 1;
   overflow-y: auto;
   margin-bottom: 16px;
   display: flex;
@@ -623,6 +635,7 @@ body {
   font-size: 0.95rem;
   position: relative;
   animation: messageSlide 0.3s ease;
+  word-wrap: break-word;
 }
 
 .user-message {
@@ -656,8 +669,15 @@ body {
 
 .chat-input-container {
   display: flex;
-  margin-top: auto;
   gap: 8px;
+  position: sticky;
+  bottom: 0;
+  background-color: var(--system-background);
+  padding: 10px 0;
+  border-top: 1px solid var(--system-separator);
+  margin-top: auto;
+  flex-shrink: 0;
+  z-index: 10;
 }
 
 .chat-input {
@@ -934,16 +954,18 @@ body {
 }
 
 /* Event status styles */
-.event-deleted, .rbc-event.event-deleted {
+.event-deleted {
   text-decoration: line-through;
-  opacity: 0.7;
-  background-color: var(--apple-gray3);
+  opacity: 0.6;
+  background-color: #ccc !important;
+  color: #666 !important;
 }
 
-.event-rescheduled, .rbc-event.event-rescheduled {
+.event-rescheduled {
   text-decoration: line-through;
-  opacity: 0.7;
-  background-color: var(--apple-orange);
+  opacity: 0.6;
+  background-color: #f0d98b !important;
+  color: #896c1d !important;
 }
 
 .tooltip-status {
@@ -1083,4 +1105,23 @@ body {
 
 .secondary-btn:hover {
   background-color: var(--apple-gray5);
+}
+
+/* Calendar styles - update event styles to handle deleted/rescheduled state */
+.rbc-event {
+  transition: all 0.3s ease;
+}
+
+.event-deleted {
+  text-decoration: line-through;
+  opacity: 0.6;
+  background-color: #ccc !important;
+  color: #666 !important;
+}
+
+.event-rescheduled {
+  text-decoration: line-through;
+  opacity: 0.6;
+  background-color: #f0d98b !important;
+  color: #896c1d !important;
 } 

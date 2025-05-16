@@ -178,31 +178,131 @@ def chat():
             logger.debug(f"Action to perform: {action}")
             
             if action == 'create':
+                # Validate required fields for create action
+                if not all(k in event for k in ['title', 'start', 'end']):
+                    missing = [k for k in ['title', 'start', 'end'] if k not in event]
+                    logger.warning(f"Event is missing required fields: {missing}")
+                    return jsonify({
+                        'message': f"I couldn't add your event because some required information was missing: {', '.join(missing)}. Please try again with complete details.",
+                        'event': None
+                    })
+                
                 # Add event to storage
                 logger.info("Creating new event")
                 events.append(event)
                 save_events()
             
             elif action == 'delete':
+                # For delete, we only need title and optionally other fields to help identify the event
+                if 'title' not in event:
+                    logger.warning("Delete request missing title field")
+                    return jsonify({
+                        'message': "I couldn't identify which event to delete. Please specify the event title.",
+                        'event': None
+                    })
+                
                 # Find and delete the event
                 logger.info(f"Attempting to delete event: {event.get('title')}")
                 deleted = False
                 
-                # Try to find the event to delete
+                # Get event details for matching
+                title = event.get('title', '').lower()
+                event_date = event.get('start', None)
+                
+                # Try to find the event to delete using multiple matching strategies
+                # 1. First try exact title match
                 for i, existing_event in enumerate(events):
-                    # Match by title (can be enhanced with more matching criteria)
-                    if existing_event.get('title', '').lower() == event.get('title', '').lower():
+                    if existing_event.get('title', '').lower() == title:
                         event_to_delete = events.pop(i)
-                        logger.info(f"Event deleted: {event_to_delete}")
+                        logger.info(f"Event deleted (exact title match): {event_to_delete}")
                         deleted = True
                         save_events()
                         break
                 
+                # 2. If not found and we have a date, try date-based matching
+                if not deleted and event_date:
+                    logger.info(f"Trying date-based matching for: {event_date}")
+                    event_date_prefix = event_date.split('T')[0]  # Get just the date part
+                    
+                    for i, existing_event in enumerate(events):
+                        existing_date = existing_event.get('start', '')
+                        # Check if dates match
+                        if existing_date and existing_date.startswith(event_date_prefix):
+                            event_to_delete = events.pop(i)
+                            logger.info(f"Event deleted (date match): {event_to_delete}")
+                            deleted = True
+                            save_events()
+                            break
+                
+                # 3. Try partial title matching as a last resort
+                if not deleted and len(events) > 0:
+                    logger.info("Trying partial title matching")
+                    
+                    # Simple word overlap scoring
+                    best_match_idx = -1
+                    best_match_score = 0
+                    title_words = set(title.split())
+                    
+                    for i, existing_event in enumerate(events):
+                        existing_title = existing_event.get('title', '').lower()
+                        existing_words = set(existing_title.split())
+                        
+                        # Calculate word overlap
+                        overlap = len(title_words.intersection(existing_words))
+                        
+                        if overlap > best_match_score:
+                            best_match_score = overlap
+                            best_match_idx = i
+                    
+                    # If we found a reasonable match (at least one word in common)
+                    if best_match_score > 0:
+                        event_to_delete = events.pop(best_match_idx)
+                        logger.info(f"Event deleted (partial match with score {best_match_score}): {event_to_delete}")
+                        deleted = True
+                        save_events()
+                
+                # 4. Time-based fallback for "meeting tomorrow" type requests
+                if not deleted and event_date and "meeting" in title:
+                    logger.info("Trying time-based + generic 'meeting' fallback")
+                    event_date_prefix = event_date.split('T')[0]  # Get just the date part
+                    
+                    for i, existing_event in enumerate(events):
+                        existing_date = existing_event.get('start', '')
+                        existing_title = existing_event.get('title', '').lower()
+                        
+                        # If it's any kind of meeting on the specified date
+                        if (existing_date and existing_date.startswith(event_date_prefix) and 
+                            ("meeting" in existing_title or "appointment" in existing_title or 
+                             "call" in existing_title or "event" in existing_title)):
+                            
+                            event_to_delete = events.pop(i)
+                            logger.info(f"Event deleted (meeting on date fallback): {event_to_delete}")
+                            deleted = True
+                            save_events()
+                            break
+                
                 if not deleted:
-                    logger.warning(f"Could not find event to delete with title: {event.get('title')}")
+                    logger.warning(f"Could not find event to delete matching: {event}")
                     response_message += " However, I couldn't find the exact event to delete."
+                    
+                    # Provide helpful information about existing events
+                    if len(events) > 0:
+                        response_message += " Here are your current events: "
+                        for e in events[:3]:  # List up to 3 events
+                            event_info = f"{e.get('title')} on {e.get('start').split('T')[0]}"
+                            response_message += event_info + ", "
+                        response_message = response_message.rstrip(", ") + "."
             
             elif action == 'reschedule':
+                # Validate required fields for reschedule action
+                if not all(k in event for k in ['title', 'start', 'end']):
+                    missing = [k for k in ['title', 'start', 'end'] if k not in event]
+                    logger.warning(f"Reschedule event is missing required fields: {missing}")
+                    return jsonify({
+                        'message': f"I couldn't reschedule your event because some required information was missing: {', '.join(missing)}. Please try again with complete details.",
+                        'event': None
+                    })
+                
                 # Find and update the event
                 logger.info(f"Attempting to reschedule event: {event.get('title')}")
                 rescheduled = False

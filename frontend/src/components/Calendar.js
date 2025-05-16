@@ -65,8 +65,9 @@ export const Calendar = ({ events, onEventsChange }) => {
 
     try {
       const response = await axios.delete(`${API_BASE_URL}/api/events/${selectedEvent.id}`);
+      
       if (response.data.status === 'success') {
-        // Mark event as deleted in local state
+        // IMMEDIATELY mark event as deleted in local state without waiting for backend refresh
         const updatedEvents = events.map(event => 
           event.id === selectedEvent.id 
             ? { ...event, isDeleted: true } 
@@ -185,20 +186,33 @@ export const Calendar = ({ events, onEventsChange }) => {
     </div>
   );
 
-  // Custom style for events
+  // Style getter for events
   const eventStyleGetter = (event) => {
     let style = {
-      backgroundColor: event.isDeleted ? 'var(--apple-gray3)' : 
-                       event.isRescheduled ? 'var(--apple-orange)' : 
-                       'var(--apple-blue)',
+      backgroundColor: '#007aff',
+      borderRadius: '5px',
+      color: 'white',
+      border: 'none',
+      display: 'block',
+      overflow: 'hidden'
     };
     
-    if (event.isDeleted || event.isRescheduled) {
-      style.textDecoration = 'line-through';
-      style.opacity = 0.7;
+    let className = '';
+    
+    if (event.isDeleted) {
+      className = 'event-deleted';
+      style.backgroundColor = '#ccc';
+      style.color = '#666';
+    } else if (event.isRescheduled) {
+      className = 'event-rescheduled';
+      style.backgroundColor = '#f0d98b';
+      style.color = '#896c1d';
     }
     
-    return { style };
+    return {
+      style,
+      className
+    };
   };
 
   return (

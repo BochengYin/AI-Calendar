@@ -64,8 +64,53 @@ function App() {
     }
   };
 
-  const addEvent = (event) => {
-    setEvents([...events, event]);
+  const handleChatResponse = (response) => {
+    if (response.event) {
+      const action = response.action || 'create';
+      
+      if (action === 'create') {
+        // Add new event
+        setEvents(prev => [...prev, response.event]);
+      } 
+      else if (action === 'delete') {
+        // For delete action, immediately mark the matching events as deleted
+        setEvents(prev => {
+          const { title, start } = response.event;
+          const titleLower = title?.toLowerCase();
+          const startDate = start?.split('T')[0]; // Get just the date part
+          
+          return prev.map(event => {
+            // Mark as deleted if:
+            // 1. Title matches and it's on the same date, or
+            // 2. It's on the same date and it's a "meeting" type event
+            const eventDate = event.start?.split('T')[0];
+            const isEventOnSameDate = startDate && eventDate === startDate;
+            const hasTitleMatch = titleLower && event.title?.toLowerCase().includes(titleLower);
+            const isMeetingType = event.title?.toLowerCase().includes('meeting');
+            
+            if ((isEventOnSameDate && (hasTitleMatch || (titleLower === 'meeting' && isMeetingType)))) {
+              return { ...event, isDeleted: true };
+            }
+            return event;
+          });
+        });
+      }
+      else if (action === 'reschedule') {
+        // For reschedule, mark original as deleted and add the new one
+        setEvents(prev => {
+          const updatedEvents = prev.map(event => {
+            // Find the original event by title and mark it as deleted/rescheduled
+            if (event.title === response.event.title && !event.isDeleted) {
+              return { ...event, isDeleted: true, isRescheduled: true };
+            }
+            return event;
+          });
+          
+          // Add the rescheduled event
+          return [...updatedEvents, response.event];
+        });
+      }
+    }
   };
 
   const handleEventsChange = (updatedEvents) => {
@@ -141,7 +186,7 @@ function App() {
         </div>
         <div className="chat-panel">
           <div className="chatbot-container">
-            <Chatbot onEventAdded={addEvent} />
+            <Chatbot onEventAdded={handleChatResponse} />
           </div>
         </div>
       </div>
