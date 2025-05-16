@@ -4,8 +4,10 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import moment from 'moment';
 import axios from 'axios';
 
+// Backend API URL - easier to change if needed
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const localizer = momentLocalizer(moment);
-const API_BASE_URL = 'http://localhost:8000';
 
 export const Calendar = ({ events, onEventsChange }) => {
   const [selectedEvent, setSelectedEvent] = useState(null);

@@ -5,6 +5,9 @@ import { UpcomingEvents } from './components/UpcomingEvents';
 import './index.css';
 import axios from 'axios';
 
+// Backend API URL - easier to change if needed
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 function App() {
   const [events, setEvents] = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -23,7 +26,7 @@ function App() {
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/events');
+      const response = await axios.get(`${API_BASE_URL}/api/events`);
       
       // Ensure all events have IDs for proper handling
       const processedEvents = response.data.map(event => {
@@ -44,7 +47,7 @@ function App() {
 
   const checkSystemStatus = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/health', { timeout: 3000 });
+      const response = await axios.get(`${API_BASE_URL}/api/health`, { timeout: 3000 });
       
       setStatusInfo({
         backendStatus: 'Connected',

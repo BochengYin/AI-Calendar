@@ -7,7 +7,7 @@ const debug = (message, data) => {
 };
 
 // Backend API URL - easier to change if needed
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 export const Chatbot = ({ onEventAdded }) => {
   const [input, setInput] = useState('');
