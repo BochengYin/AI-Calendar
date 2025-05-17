@@ -46,9 +46,17 @@ function App() {
   };
 
   const checkSystemStatus = async () => {
+    console.log('Checking backend health at:', `${API_BASE_URL}/api/health`);
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/health`, { timeout: 3000 });
+      const response = await axios.get(`${API_BASE_URL}/api/health`, { 
+        timeout: 30000,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
       
+      console.log('Backend health response:', response.data);
       setStatusInfo({
         backendStatus: 'Connected',
         apiKeyStatus: response.data.api_key_configured ? 'Configured' : 'Missing',
@@ -57,12 +65,26 @@ function App() {
         lastChecked: new Date().toLocaleTimeString()
       });
     } catch (error) {
+      console.error('Backend health check failed:', error);
+      
+      // Provide more detailed error information
+      let errorDetails = '';
+      if (error.response) {
+        errorDetails = `Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data)}`;
+      } else if (error.request) {
+        errorDetails = 'No response received';
+      } else {
+        errorDetails = error.message;
+      }
+      
+      console.error('Error details:', errorDetails);
+      
       setStatusInfo({
         backendStatus: 'Disconnected',
         apiKeyStatus: 'Unknown',
         apiQuotaStatus: 'Unknown',
         lastChecked: new Date().toLocaleTimeString(),
-        error: error.message
+        error: `${error.message} - ${errorDetails}`
       });
     }
   };
