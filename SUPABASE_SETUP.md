@@ -23,16 +23,24 @@ This guide walks you through setting up Supabase for authentication and database
      - Subject: "Your AI Calendar Login Link"
      - Customize the template content with something like:
      ```html
-     <h2>Magic Link</h2>
-     <p>Follow this link to login:</p>
-     <p><a href="{{ .ConfirmationURL }}">Log In</a></p>
-     <p>Or copy and paste this URL into your browser:</p>
-     <p>{{ .ConfirmationURL }}</p>
-     <p style="color: #666; font-size: 14px; margin-top: 20px;">
-       • This link will expire in 24 hours<br>
-       • If you didn't request this email, you can safely ignore it
-     </p>
-     <p style="color: #666; font-size: 14px; margin-top: 30px;">
+     <h2 style="color: #333; font-family: Arial, sans-serif;">AI Calendar Login</h2>
+     <p style="font-family: Arial, sans-serif; color: #444;">Click the button below to log in to your AI Calendar:</p>
+     
+     <div style="margin: 30px 0;">
+       <a href="{{ .ConfirmationURL }}" style="background-color: #007AFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-weight: bold; display: inline-block;">
+         LOG IN TO AI CALENDAR
+       </a>
+     </div>
+     
+     <p style="font-family: Arial, sans-serif; color: #444;">Or copy and paste this URL into your browser:</p>
+     <p style="font-family: Arial, sans-serif; color: #666; word-break: break-all;">{{ .ConfirmationURL }}</p>
+     
+     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-family: Arial, sans-serif; color: #666; font-size: 14px;">
+       <p>• This link will expire in 24 hours</p>
+       <p>• If you didn't request this email, you can safely ignore it</p>
+     </div>
+     
+     <p style="text-align: center; margin-top: 30px; font-family: Arial, sans-serif; color: #999;">
        Powered by 🐱 AI Calendar
      </p>
      ```
