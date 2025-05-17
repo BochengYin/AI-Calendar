@@ -22,7 +22,6 @@ function App() {
   });
 
   useEffect(() => {
-    // Only fetch events if user is authenticated
     if (user) {
       fetchEvents();
       checkSystemStatus();
@@ -31,27 +30,25 @@ function App() {
 
   const fetchEvents = async () => {
     try {
-      // Add the user ID to the request to fetch only this user's events
+      // Add explicit user_id filter to improve RLS performance
       const response = await axios.get(`${API_BASE_URL}/api/events`, {
-        headers: { 
-          'Authorization': `Bearer ${user.id}`,
+        headers: {
+          Authorization: `Bearer ${user.id}`,
           'User-Email': user.email
+        },
+        params: {
+          user_id: user.id // Add explicit filter parameter
         }
       });
       
-      // Ensure all events have IDs for proper handling
-      const processedEvents = response.data.map(event => {
-        // If the event doesn't have an ID, assign a client-side UUID
-        if (!event.id) {
-          return { ...event, id: crypto.randomUUID() };
-        }
-        return event;
-      });
+      // Transform events to ensure they all have IDs
+      const events = response.data.map(event => 
+        event.id ? event : { ...event, id: crypto.randomUUID() }
+      );
       
-      setEvents(processedEvents);
+      setEvents(events);
     } catch (error) {
       console.error('Error fetching events:', error);
-      // If we can't connect to the backend, initialize with empty events array
       setEvents([]);
     }
   };

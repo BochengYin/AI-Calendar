@@ -102,11 +102,17 @@ export const Calendar = ({ events, onEventsChange }) => {
       start: startDateTime,
       end: endDateTime,
       allDay: newEventData.allDay,
-      description: newEventData.description
+      description: newEventData.description,
+      user_id: user?.id // Add the current user's ID to support RLS
     };
     
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/events`, newEvent);
+      const response = await axios.post(`${API_BASE_URL}/api/events`, newEvent, {
+        headers: {
+          'Authorization': `Bearer ${user.id}`,
+          'User-Email': user.email
+        }
+      });
       
       // If successful, add the event to local state
       if (response.status === 201) {

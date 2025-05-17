@@ -44,7 +44,12 @@ logger.debug(f"OPENAI_API_KEY length: {len(os.getenv('OPENAI_API_KEY') or '')}")
 
 app = Flask(__name__)
 # Update CORS configuration to allow requests from Vercel
-CORS(app, resources={r"/api/*": {"origins": ["https://ai-calendar-sigma.vercel.app", "http://localhost:3000", "*"]}}, 
+CORS(app, resources={r"/api/*": {"origins": [
+    "https://ai-calendar-sigma.vercel.app", 
+    "https://ai-calendar-gelb764fy-bochengs-projects.vercel.app",
+    "http://localhost:3000", 
+    "*"
+]}}, 
      supports_credentials=True,
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"])
@@ -116,15 +121,42 @@ else:
 @app.route('/api/events', methods=['GET'])
 def get_events():
     logger.info("GET /api/events endpoint called")
-    return jsonify(events)
+    
+    # Check for user_id in query parameters - this implements RLS-like filtering
+    user_id = request.args.get('user_id')
+    user_email = request.headers.get('User-Email')
+    
+    if user_id:
+        logger.info(f"Filtering events for user: {user_id} ({user_email})")
+        # Filter events by user_id if provided
+        filtered_events = [
+            event for event in events 
+            if event.get('user_id') == user_id or not event.get('user_id')
+        ]
+        return jsonify(filtered_events)
+    else:
+        # If no user_id provided, return all events (for admin access or when not using RLS)
+        logger.warning("No user_id provided, returning all events")
+        return jsonify(events)
 
 @app.route('/api/events', methods=['POST'])
 def create_event():
     logger.info("POST /api/events endpoint called")
     event = request.json
+    
     # Generate a unique ID if not provided
     if 'id' not in event:
         event['id'] = str(uuid.uuid4())
+    
+    # Add user_id from the authentication header if not already set
+    if 'user_id' not in event:
+        # Get user_id from Authorization header (Bearer token)
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            user_id = auth_header.split(' ')[1]
+            event['user_id'] = user_id
+            logger.info(f"Added user_id {user_id} to event")
+    
     logger.debug(f"Received event: {event}")
     events.append(event)
     save_events()
