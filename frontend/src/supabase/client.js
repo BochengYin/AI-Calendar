@@ -11,16 +11,17 @@ console.log('Node environment:', process.env.NODE_ENV);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('⚠️ Supabase URL or Anon Key not found. Authentication will not work.');
-  console.error('Please make sure your .env.development file exists and has the correct variables.');
+  console.error('Please make sure your environment variables are set correctly.');
   
-  // For development fallback - REMOVE IN PRODUCTION
+  // For development environments, provide more detailed guidance
   if (process.env.NODE_ENV === 'development') {
-    console.warn('Using fallback Supabase URL for development');
+    console.warn('Make sure you have .env.local file with REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY');
   }
 }
 
-// Ensure we always have values even if env vars fail
-const finalSupabaseUrl = supabaseUrl || 'https://ssyhnabptfcxsyydexfc.supabase.co';
-const finalSupabaseKey = supabaseAnonKey || '';
-
-export const supabase = createClient(finalSupabaseUrl, finalSupabaseKey); 
+// NEVER provide fallback values for sensitive credentials
+// If environment variables are missing, authentication will gracefully fail
+export const supabase = createClient(
+  supabaseUrl || '', 
+  supabaseAnonKey || ''
+); 
