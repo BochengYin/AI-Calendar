@@ -134,15 +134,22 @@ def process_event_request(user_message):
             For example, if today is """ + datetime.now().strftime("%Y-%m-%d") + """ and the user says "tomorrow at 3pm", 
             use """ + (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d") + """ as the date.
             
+            IMPORTANT: Always create descriptive and specific event titles. Never use generic titles like just "meeting" alone.
+            Instead, include context about the meeting purpose, attendees, or topic. For example:
+            - "Coffee with Mike" instead of "meeting"
+            - "Team Standup Meeting" instead of "meeting"
+            - "Doctor's Appointment" instead of "appointment"
+            - "Budget Review with Finance" instead of "review"
+            
             If the user refers to "this meeting" or "the event" without specifics, use the most recently discussed event.
             
             If the user wants to DELETE an event, extract information about which event to delete and include 
             "action": "delete" in your response. For deletion, you only need to provide:
-            1. The title of the event (use generic "meeting" if a specific title isn't mentioned)
+            1. The title of the event (be as specific as possible, not just "meeting")
             2. The date of the event if mentioned (e.g., "tomorrow", "Friday", etc.)
             
             Even if the user is vague like "delete the meeting tomorrow", still try to extract what you can
-            (e.g., title: "meeting", start: "[tomorrow's date]").
+            and use any context from previous messages to create a more specific title.
             
             If the user wants to RESCHEDULE an event, extract the original event details along with the new time, and include
             "action": "reschedule" in your response.
@@ -151,7 +158,7 @@ def process_event_request(user_message):
             For regular event creation:
             {
                 "event": {
-                    "title": "Event title",
+                    "title": "Event title (be specific and descriptive)",
                     "start": "ISO date string",
                     "end": "ISO date string",
                     "allDay": false,
@@ -164,7 +171,7 @@ def process_event_request(user_message):
             For event deletion:
             {
                 "event": {
-                    "title": "Event title to delete",
+                    "title": "Event title to delete (be specific)",
                     "start": "ISO date string of original event" (optional, but include if known)
                 },
                 "message": "Your response to the user",
@@ -174,7 +181,7 @@ def process_event_request(user_message):
             For event rescheduling:
             {
                 "event": {
-                    "title": "Event title",
+                    "title": "Event title (be specific)",
                     "originalStart": "ISO date string of original event",
                     "originalEnd": "ISO date string of original event",
                     "start": "ISO date string of new time",
@@ -292,9 +299,9 @@ def create_default_event():
     end = start + timedelta(hours=1)
     
     return {
-        "title": "Test Event",
+        "title": "Test Calendar Integration",
         "start": start.isoformat(),
         "end": end.isoformat(),
         "allDay": False,
-        "description": "This is a test event"
+        "description": "This is a test event to verify the calendar integration is working properly"
     } 

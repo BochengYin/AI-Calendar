@@ -3,6 +3,7 @@ import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import moment from 'moment';
 import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 
 // Backend API URL - easier to change if needed
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -17,6 +18,16 @@ export const Calendar = ({ events, onEventsChange }) => {
     startTime: '',
     endDate: '',
     endTime: ''
+  });
+  const [showNewEventForm, setShowNewEventForm] = useState(false);
+  const [newEventData, setNewEventData] = useState({
+    title: '',
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: '',
+    description: '',
+    allDay: false
   });
   
   // Convert the events to the format expected by react-big-calendar
@@ -34,11 +45,90 @@ export const Calendar = ({ events, onEventsChange }) => {
   const handleSelectEvent = (event) => {
     setSelectedEvent(event.resource);
     setIsRescheduling(false);
+    setShowNewEventForm(false);
   };
 
   const closeEventDetails = () => {
     setSelectedEvent(null);
     setIsRescheduling(false);
+  };
+  
+  const closeNewEventForm = () => {
+    setShowNewEventForm(false);
+  };
+
+  // Handle calendar slot selection (clicking on calendar dates/times)
+  const handleSelectSlot = ({ start, end }) => {
+    // Close any existing forms or details
+    setSelectedEvent(null);
+    setIsRescheduling(false);
+    
+    // Initialize new event form with selected date/time
+    const startMoment = moment(start);
+    const endMoment = moment(end);
+    
+    setNewEventData({
+      title: '',
+      startDate: startMoment.format('YYYY-MM-DD'),
+      startTime: startMoment.format('HH:mm'),
+      endDate: endMoment.format('YYYY-MM-DD'),
+      endTime: endMoment.format('HH:mm'),
+      description: '',
+      allDay: false
+    });
+    
+    setShowNewEventForm(true);
+  };
+  
+  const handleNewEventChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewEventData({
+      ...newEventData,
+      [name]: type === 'checkbox' ? checked : value
+    });
+  };
+  
+  const submitNewEvent = async (e) => {
+    e.preventDefault();
+    
+    // Create ISO date strings for start and end times
+    const startDateTime = moment(`${newEventData.startDate} ${newEventData.startTime}`).format();
+    const endDateTime = moment(`${newEventData.endDate} ${newEventData.endTime}`).format();
+    
+    // Create event object
+    const newEvent = {
+      id: uuidv4(), // Generate client-side ID
+      title: newEventData.title,
+      start: startDateTime,
+      end: endDateTime,
+      allDay: newEventData.allDay,
+      description: newEventData.description
+    };
+    
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/events`, newEvent);
+      
+      // If successful, add the event to local state
+      if (response.status === 201) {
+        const createdEvent = response.data;
+        
+        // Add the new event to the events array
+        const updatedEvents = [...events, createdEvent];
+        
+        // Notify parent component about the change
+        if (onEventsChange) {
+          onEventsChange(updatedEvents);
+        }
+        
+        // Close the form
+        closeNewEventForm();
+      } else {
+        alert('Failed to create event');
+      }
+    } catch (error) {
+      console.error('Error creating event:', error);
+      alert(`Error creating event: ${error.response?.data?.message || error.message}`);
+    }
   };
 
   const handleDeleteEvent = async () => {
@@ -231,6 +321,8 @@ export const Calendar = ({ events, onEventsChange }) => {
         }}
         eventPropGetter={eventStyleGetter}
         onSelectEvent={handleSelectEvent}
+        onSelectSlot={handleSelectSlot}
+        selectable={true}
         popup
       />
       
@@ -344,6 +436,104 @@ export const Calendar = ({ events, onEventsChange }) => {
                 </form>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      
+      {showNewEventForm && (
+        <div className="event-detail-overlay" onClick={closeNewEventForm}>
+          <div className="event-detail-modal" onClick={e => e.stopPropagation()}>
+            <button className="close-button" onClick={closeNewEventForm}>×</button>
+            <div className="event-detail-header">
+              <h3>Create New Event</h3>
+            </div>
+            
+            <div className="event-detail-content">
+              <form onSubmit={submitNewEvent}>
+                <div className="form-group">
+                  <label>Title</label>
+                  <input 
+                    type="text" 
+                    name="title" 
+                    value={newEventData.title} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    placeholder="Event title"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input 
+                    type="date" 
+                    name="startDate" 
+                    value={newEventData.startDate} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Start Time</label>
+                  <input 
+                    type="time" 
+                    name="startTime" 
+                    value={newEventData.startTime} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Date</label>
+                  <input 
+                    type="date" 
+                    name="endDate" 
+                    value={newEventData.endDate} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>End Time</label>
+                  <input 
+                    type="time" 
+                    name="endTime" 
+                    value={newEventData.endTime} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Description</label>
+                  <textarea 
+                    name="description" 
+                    value={newEventData.description} 
+                    onChange={handleNewEventChange} 
+                    className="form-control"
+                    placeholder="Event description"
+                    rows="3"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="checkbox-container">
+                    <input 
+                      type="checkbox" 
+                      name="allDay" 
+                      checked={newEventData.allDay} 
+                      onChange={handleNewEventChange} 
+                    />
+                    <span className="checkbox-label">All Day Event</span>
+                  </label>
+                </div>
+                <div className="form-actions">
+                  <button type="submit" className="btn primary-btn">Create Event</button>
+                  <button type="button" className="btn secondary-btn" onClick={closeNewEventForm}>Cancel</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

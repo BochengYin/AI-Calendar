@@ -66,7 +66,7 @@ def load_events():
                 # Ensure all events have IDs
                 for event in loaded_events:
                     if 'id' not in event:
-                        event['id'] = str(uuid.uuid4())
+                        event['id'] = str(uuid.uuid4()) 
                 logger.info(f"Loaded {len(loaded_events)} events from events.json")
                 return loaded_events
     except Exception as e:
@@ -86,8 +86,22 @@ def save_events():
 # Load events on startup
 events = load_events()
 
-# Initialize OpenAI client
-openai_api_key = os.getenv("OPENAI_API_KEY")
+# Initialize OpenAI client - direct load from .env
+try:
+    with open('.env', 'r') as f:
+        for line in f:
+            if line.startswith('OPENAI_API_KEY='):
+                openai_api_key = line.split('=', 1)[1].strip()
+                if openai_api_key.startswith('"') and openai_api_key.endswith('"'):
+                    openai_api_key = openai_api_key[1:-1]
+                elif openai_api_key.startswith("'") and openai_api_key.endswith("'"):
+                    openai_api_key = openai_api_key[1:-1]
+                break
+        else:
+            openai_api_key = None
+except Exception as e:
+    logger.error(f"Error loading API key directly from .env: {e}")
+    openai_api_key = os.getenv("OPENAI_API_KEY")
 if openai_api_key:
     openai.api_key = openai_api_key
     logger.info(f"OpenAI API key loaded (length: {len(openai_api_key)})")
@@ -280,21 +294,18 @@ def chat():
                         save_events()
                 
                 # 4. Time-based fallback for "meeting tomorrow" type requests
-                if not deleted and event_date and "meeting" in title:
-                    logger.info("Trying time-based + generic 'meeting' fallback")
+                if not deleted and event_date:
+                    logger.info("Trying time-based fallback for events on specific date")
                     event_date_prefix = event_date.split('T')[0]  # Get just the date part
                     
                     for i, existing_event in enumerate(events):
                         existing_date = existing_event.get('start', '')
                         existing_title = existing_event.get('title', '').lower()
                         
-                        # If it's any kind of meeting on the specified date
-                        if (existing_date and existing_date.startswith(event_date_prefix) and 
-                            ("meeting" in existing_title or "appointment" in existing_title or 
-                             "call" in existing_title or "event" in existing_title)):
-                            
+                        # If it's any kind of event on the specified date
+                        if (existing_date and existing_date.startswith(event_date_prefix)):
                             event_to_delete = events.pop(i)
-                            logger.info(f"Event deleted (meeting on date fallback): {event_to_delete}")
+                            logger.info(f"Event deleted (date-based fallback): {event_to_delete}")
                             deleted = True
                             save_events()
                             break
