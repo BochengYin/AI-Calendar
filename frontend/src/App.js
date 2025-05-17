@@ -178,6 +178,16 @@ function App() {
             Error: {statusInfo.error}
           </div>
         )}
+        {statusInfo.backendStatus === 'Disconnected' && (
+          <div className="status-warning-message">
+            <p>Note: The backend is hosted on Render's free tier which spins down with inactivity.</p>
+            <p>If your first connection fails, please wait 30-60 seconds while Render spins up the server, then try again.</p>
+            <p>You can also visit the backend directly to wake it up:</p>
+            <a href={`${API_BASE_URL}/api/health`} target="_blank" rel="noopener noreferrer">
+              Wake up backend server
+            </a>
+          </div>
+        )}
         <div className="status-actions">
           <button className="btn btn-primary" onClick={checkSystemStatus}>
             Refresh Status
