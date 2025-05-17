@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize the Supabase client
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "https://ssyhnabptfcxsyydexfc.supabase.co";
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 // Log environment variables for debugging (URLs only, not keys)
@@ -22,6 +22,6 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // NEVER provide fallback values for sensitive credentials
 // If environment variables are missing, authentication will gracefully fail
 export const supabase = createClient(
-  supabaseUrl || '', 
+  supabaseUrl, 
   supabaseAnonKey || ''
 ); 
