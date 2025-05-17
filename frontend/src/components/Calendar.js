@@ -10,7 +10,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 const localizer = momentLocalizer(moment);
 
-export const Calendar = ({ events, onEventsChange }) => {
+export const Calendar = ({ events, onEventsChange, user }) => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleData, setRescheduleData] = useState({

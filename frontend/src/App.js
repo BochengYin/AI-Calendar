@@ -247,7 +247,7 @@ function App() {
           </div>
         </div>
         <div className="calendar-container">
-          <Calendar events={events} onEventsChange={handleEventsChange} />
+          <Calendar events={events} onEventsChange={handleEventsChange} user={user} />
         </div>
         <div className="chat-panel">
           <div className="chatbot-container">
