@@ -9,6 +9,7 @@ export const Auth = ({ onAuthenticated }) => {
   const [verificationCode, setVerificationCode] = useState('');
   const [initError, setInitError] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
+  const [loginAttempted, setLoginAttempted] = useState(false);
 
   // Check if Supabase is properly initialized
   useEffect(() => {
@@ -61,6 +62,7 @@ export const Auth = ({ onAuthenticated }) => {
     try {
       setLoading(true);
       setMessage('');
+      setLoginAttempted(true);
       
       console.log('Sending OTP to email:', email);
       
@@ -80,11 +82,16 @@ export const Auth = ({ onAuthenticated }) => {
         throw error;
       }
       
-      setMessage('Check your email for the verification code');
+      setMessage('Check your email for the verification code. If you don\'t receive it within a minute, check your spam folder or try again.');
       setShowVerificationInput(true);
     } catch (error) {
       console.error('Error sending OTP:', error);
-      setMessage(`Authentication Error: ${error.error_description || error.message || 'An error occurred during login'}`);
+      if (error.message === 'Email not confirmed') {
+        setMessage('Please verify your email address. Check your inbox for a verification link.');
+        setShowVerificationInput(true);
+      } else {
+        setMessage(`Authentication Error: ${error.error_description || error.message || 'An error occurred during login'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -129,7 +136,15 @@ export const Auth = ({ onAuthenticated }) => {
       }
     } catch (error) {
       console.error('Error verifying code:', error);
-      setMessage(`Verification Error: ${error.error_description || error.message || 'Invalid verification code'}`);
+      
+      // Handle different error types with more specific messages
+      if (error.message.includes('expired')) {
+        setMessage('The verification code has expired. Please request a new one.');
+      } else if (error.message.includes('invalid')) {
+        setMessage('Invalid verification code. Please check and try again.');
+      } else {
+        setMessage(`Verification Error: ${error.error_description || error.message || 'Invalid verification code'}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -189,6 +204,12 @@ export const Auth = ({ onAuthenticated }) => {
             >
               {loading ? 'Sending...' : 'Send Verification Code'}
             </button>
+            
+            {loginAttempted && (
+              <div className="auth-note" style={{ marginTop: '10px', fontSize: '14px', color: '#666' }}>
+                Note: This app uses passwordless login. You'll receive a verification code via email.
+              </div>
+            )}
             
             {message && <div className="auth-message">{message}</div>}
             
