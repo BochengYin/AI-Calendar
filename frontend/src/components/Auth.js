@@ -8,23 +8,39 @@ export const Auth = ({ onAuthenticated }) => {
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [initError, setInitError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState('');
 
   // Check if Supabase is properly initialized
   useEffect(() => {
+    // Display configuration information for debugging
+    const debug = {
+      supabaseUrl: process.env.REACT_APP_SUPABASE_URL || 'not set',
+      apiUrl: process.env.REACT_APP_API_URL || 'not set',
+      hasSupabaseKey: process.env.REACT_APP_SUPABASE_ANON_KEY ? 'set' : 'not set',
+      nodeEnv: process.env.NODE_ENV || 'not set',
+      currentUrl: window.location.href
+    };
+    
+    setDebugInfo(JSON.stringify(debug, null, 2));
+    console.log('Debug info:', debug);
+    
     if (!supabase) {
       console.error('Supabase client is not initialized in Auth component');
       setInitError('Authentication service is not available. Please check your configuration.');
     } else {
-      console.log('Auth component: Supabase client initialized');
+      console.log('Auth component: Supabase client initialized', supabase);
       
       // Testing supabase connection
       const testConnection = async () => {
         try {
-          await supabase.auth.getSession();
+          console.log('Testing Supabase connection...');
+          const { data, error } = await supabase.auth.getSession();
+          console.log('Supabase connection test result:', { data, error });
+          if (error) throw error;
           console.log('Supabase connection test successful');
         } catch (error) {
           console.error('Supabase connection test failed:', error);
-          setInitError('Could not connect to authentication service. Please try again later.');
+          setInitError(`Could not connect to authentication service: ${error.message || error}`);
         }
       };
       
@@ -64,7 +80,7 @@ export const Auth = ({ onAuthenticated }) => {
       setShowVerificationInput(true);
     } catch (error) {
       console.error('Error sending OTP:', error);
-      setMessage(error.error_description || error.message || 'An error occurred during login');
+      setMessage(`Authentication Error: ${error.error_description || error.message || 'An error occurred during login'}`);
     } finally {
       setLoading(false);
     }
@@ -105,7 +121,7 @@ export const Auth = ({ onAuthenticated }) => {
       }
     } catch (error) {
       console.error('Error verifying code:', error);
-      setMessage(error.error_description || error.message || 'Invalid verification code');
+      setMessage(`Verification Error: ${error.error_description || error.message || 'Invalid verification code'}`);
     } finally {
       setLoading(false);
     }
@@ -122,6 +138,10 @@ export const Auth = ({ onAuthenticated }) => {
             {initError}
           </div>
           <p>Please check the console for more information and ensure your environment variables are set correctly.</p>
+          <details>
+            <summary>Debug Information</summary>
+            <pre>{debugInfo}</pre>
+          </details>
           <button 
             className="btn btn-primary auth-button"
             onClick={() => window.location.reload()}
@@ -163,6 +183,11 @@ export const Auth = ({ onAuthenticated }) => {
             </button>
             
             {message && <div className="auth-message">{message}</div>}
+            
+            <details style={{ marginTop: '20px', fontSize: '12px' }}>
+              <summary>Debug Information</summary>
+              <pre>{debugInfo}</pre>
+            </details>
           </form>
         ) : (
           <form onSubmit={handleVerification} className="auth-form">
