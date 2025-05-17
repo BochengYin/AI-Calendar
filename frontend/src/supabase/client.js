@@ -5,9 +5,10 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "https://ssyhnabptfcxs
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzeWhuYWJwdGZjeHN5eWRleGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU5NTQ4MzYsImV4cCI6MjAzMTUzMDgzNn0.Q4SZKfGdkYvTJg6KDYJcDKlMDXtKZbDXhX5SHvOYNIY";
 
 // Log environment variables for debugging (URLs only, not keys)
-console.log('Supabase URL from env:', supabaseUrl);
+console.log('Supabase URL being used:', supabaseUrl);
 console.log('API URL from env:', process.env.REACT_APP_API_URL);
 console.log('Node environment:', process.env.NODE_ENV);
+console.log('Anon key length:', supabaseAnonKey?.length || 0);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('⚠️ Supabase URL or Anon Key not found. Authentication will not work.');
@@ -19,9 +20,17 @@ if (!supabaseUrl || !supabaseAnonKey) {
   }
 }
 
-// NEVER provide fallback values for sensitive credentials
-// If environment variables are missing, authentication will gracefully fail
+// Create client with detailed options for better debugging
 export const supabase = createClient(
   supabaseUrl, 
-  supabaseAnonKey
+  supabaseAnonKey,
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      storageKey: 'ai-calendar-auth-token',
+      debug: process.env.NODE_ENV === 'development',
+    },
+  }
 ); 

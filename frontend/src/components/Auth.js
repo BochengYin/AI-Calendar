@@ -18,7 +18,9 @@ export const Auth = ({ onAuthenticated }) => {
       apiUrl: process.env.REACT_APP_API_URL || 'not set',
       hasSupabaseKey: process.env.REACT_APP_SUPABASE_ANON_KEY ? 'set' : 'not set',
       nodeEnv: process.env.NODE_ENV || 'not set',
-      currentUrl: window.location.href
+      currentUrl: window.location.href,
+      keyType: typeof supabase?.auth?.autoRefreshToken,
+      supabaseInitialized: !!supabase
     };
     
     setDebugInfo(JSON.stringify(debug, null, 2));
@@ -63,13 +65,15 @@ export const Auth = ({ onAuthenticated }) => {
       console.log('Sending OTP to email:', email);
       
       // Send OTP to the user's email
-      const { error } = await supabase.auth.signInWithOtp({
+      const { data, error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          // Explicitly request OTP (not magic link)
+          emailRedirectTo: window.location.origin,
           shouldCreateUser: true,
         }
       });
+      
+      console.log('OTP response:', { data, error });
       
       if (error) {
         console.error('OTP error:', error);
@@ -98,7 +102,7 @@ export const Auth = ({ onAuthenticated }) => {
       setLoading(true);
       setMessage('');
       
-      console.log('Verifying OTP code for email:', email);
+      console.log('Verifying OTP code for email:', email, 'code:', verificationCode);
       
       // Verify the OTP code
       const { data, error } = await supabase.auth.verifyOtp({
@@ -106,6 +110,8 @@ export const Auth = ({ onAuthenticated }) => {
         token: verificationCode,
         type: 'email'
       });
+      
+      console.log('Verification response:', { data, error });
       
       if (error) {
         console.error('Verification error:', error);
@@ -118,6 +124,8 @@ export const Auth = ({ onAuthenticated }) => {
         console.log('User authenticated:', data.user.email);
         setMessage('Login successful!');
         onAuthenticated(data.user);
+      } else {
+        throw new Error('No user data returned after successful verification');
       }
     } catch (error) {
       console.error('Error verifying code:', error);
