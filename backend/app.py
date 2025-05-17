@@ -88,17 +88,22 @@ events = load_events()
 
 # Initialize OpenAI client - direct load from .env
 try:
-    with open('.env', 'r') as f:
-        for line in f:
-            if line.startswith('OPENAI_API_KEY='):
-                openai_api_key = line.split('=', 1)[1].strip()
-                if openai_api_key.startswith('"') and openai_api_key.endswith('"'):
-                    openai_api_key = openai_api_key[1:-1]
-                elif openai_api_key.startswith("'") and openai_api_key.endswith("'"):
-                    openai_api_key = openai_api_key[1:-1]
-                break
-        else:
-            openai_api_key = None
+    import os.path
+    if os.path.exists('.env'):
+        with open('.env', 'r') as f:
+            for line in f:
+                if line.startswith('OPENAI_API_KEY='):
+                    openai_api_key = line.split('=', 1)[1].strip()
+                    if openai_api_key.startswith('"') and openai_api_key.endswith('"'):
+                        openai_api_key = openai_api_key[1:-1]
+                    elif openai_api_key.startswith("'") and openai_api_key.endswith("'"):
+                        openai_api_key = openai_api_key[1:-1]
+                    break
+            else:
+                openai_api_key = None
+    else:
+        logger.info("No .env file found, using environment variables")
+        openai_api_key = os.getenv("OPENAI_API_KEY")
 except Exception as e:
     logger.error(f"Error loading API key directly from .env: {e}")
     openai_api_key = os.getenv("OPENAI_API_KEY")
