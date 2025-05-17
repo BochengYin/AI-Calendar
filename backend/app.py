@@ -5,6 +5,7 @@ import os
 import logging
 from dotenv import load_dotenv
 import uuid
+from datetime import datetime
 
 # Load environment variables first, before imports that might use them
 load_dotenv()
@@ -39,9 +40,12 @@ logger.debug(f"OPENAI_API_KEY configured: {'Yes' if os.getenv('OPENAI_API_KEY') 
 logger.debug(f"OPENAI_API_KEY length: {len(os.getenv('OPENAI_API_KEY') or '')}")
 
 app = Flask(__name__)
-# Update CORS configuration to be more permissive
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-logger.info("Flask app initialized with enhanced CORS support")
+# Update CORS configuration to allow requests from Vercel
+CORS(app, resources={r"/api/*": {"origins": ["https://ai-calendar-sigma.vercel.app", "http://localhost:3000", "*"]}}, 
+     supports_credentials=True,
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization", "Access-Control-Allow-Origin"])
+logger.info("Flask app initialized with enhanced CORS support for Vercel")
 
 # Get port from environment variable (useful for deployment)
 port = int(os.environ.get("PORT", 8000))
@@ -362,12 +366,21 @@ def health_check():
     logger.info("Health check endpoint called")
     has_api_key = bool(os.getenv('OPENAI_API_KEY'))
     key_length = len(os.getenv('OPENAI_API_KEY') or '')
-    return jsonify({
+    
+    response = jsonify({
         'status': 'ok',
         'api_key_configured': has_api_key,
         'api_key_length': key_length,
-        'python_version': os.sys.version
+        'python_version': os.sys.version,
+        'cors': 'enabled',
+        'timestamp': datetime.now().isoformat()
     })
+    
+    # Explicitly add CORS headers to this response
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    
+    return response
 
 @app.route('/api/test-openai', methods=['GET'])
 def test_openai():
@@ -385,6 +398,32 @@ def test_openai():
             'status': 'error',
             'message': message
         }), 500
+
+# Add a root endpoint for easy testing
+@app.route('/', methods=['GET'])
+def root():
+    return jsonify({
+        'status': 'ok',
+        'message': 'AI Calendar Backend API is running',
+        'version': '1.0.0',
+        'cors': 'Enabled for Vercel deployment',
+        'endpoints': {
+            'health': '/api/health',
+            'events': '/api/events',
+            'chat': '/api/chat'
+        }
+    })
+
+# Add an explicit OPTIONS handler for CORS preflight requests
+@app.route('/api/health', methods=['OPTIONS'])
+@app.route('/api/events', methods=['OPTIONS'])
+@app.route('/api/chat', methods=['OPTIONS'])
+def handle_options():
+    response = jsonify({'status': 'ok'})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
+    return response
 
 if __name__ == '__main__':
     logger.info(f"Starting Flask server on port {port}")
