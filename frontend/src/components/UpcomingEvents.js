@@ -11,8 +11,6 @@ export const UpcomingEvents = ({ events }) => {
     .reduce((unique, event) => {
       // Avoid duplicates with same title and same date
       const eventDate = moment(event.start).format('YYYY-MM-DD');
-      const eventKey = `${event.title}-${eventDate}`;
-      
       // Check if we already have an event with this title on this date
       const exists = unique.some(e => {
         const existingDate = moment(e.start).format('YYYY-MM-DD');

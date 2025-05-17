@@ -249,6 +249,13 @@ export const Chatbot = ({ onEventAdded }) => {
           >
             Retry 🔄
           </button>
+          <button 
+            className="btn btn-sm btn-outline-dark ms-2" 
+            onClick={testOpenAIAPI}
+            disabled={apiTestLoading}
+          >
+            {apiTestLoading ? 'Testing...' : 'Test API'}
+          </button>
         </div>
       )}
       <div className="chat-container">
