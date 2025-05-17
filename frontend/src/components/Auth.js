@@ -5,6 +5,8 @@ export const Auth = ({ onAuthenticated }) => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showVerificationInput, setShowVerificationInput] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
   const [initError, setInitError] = useState(null);
 
   // Check if Supabase is properly initialized
@@ -42,25 +44,68 @@ export const Auth = ({ onAuthenticated }) => {
       setLoading(true);
       setMessage('');
       
-      console.log('Sending magic link to email:', email);
+      console.log('Sending OTP to email:', email);
       
-      // Send a magic link to the user's email
+      // Send OTP to the user's email
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin,
+          // Explicitly request OTP (not magic link)
+          shouldCreateUser: true,
         }
       });
       
       if (error) {
-        console.error('Magic link error:', error);
+        console.error('OTP error:', error);
         throw error;
       }
       
-      setMessage('Check your email for the magic link! Click on the "Confirm your mail" link in the email.');
+      setMessage('Check your email for the verification code');
+      setShowVerificationInput(true);
     } catch (error) {
-      console.error('Error sending magic link:', error);
+      console.error('Error sending OTP:', error);
       setMessage(error.error_description || error.message || 'An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerification = async (e) => {
+    e.preventDefault();
+    
+    if (!verificationCode) {
+      setMessage('Please enter the verification code');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      setMessage('');
+      
+      console.log('Verifying OTP code for email:', email);
+      
+      // Verify the OTP code
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: verificationCode,
+        type: 'email'
+      });
+      
+      if (error) {
+        console.error('Verification error:', error);
+        throw error;
+      }
+      
+      // Successfully verified
+      console.log('Authentication result:', data);
+      if (data.user) {
+        console.log('User authenticated:', data.user.email);
+        setMessage('Login successful!');
+        onAuthenticated(data.user);
+      }
+    } catch (error) {
+      console.error('Error verifying code:', error);
+      setMessage(error.error_description || error.message || 'Invalid verification code');
     } finally {
       setLoading(false);
     }
@@ -94,37 +139,76 @@ export const Auth = ({ onAuthenticated }) => {
         <h1>🐱 AI Calendar</h1>
         <h2>Login to Your Calendar</h2>
         
-        <form onSubmit={handleLogin} className="auth-form">
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="Your email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading}
-              required
-            />
-          </div>
-          
-          <button 
-            type="submit" 
-            className="btn btn-primary auth-button"
-            disabled={loading}
-          >
-            {loading ? 'Sending...' : 'Send Magic Link'}
-          </button>
-          
-          {message && (
-            <div className="auth-message">
-              {message}
-              <div className="auth-note" style={{ marginTop: '10px', fontSize: '14px' }}>
-                Note: You may need to check your spam folder if you don't see the email.
-              </div>
+        {!showVerificationInput ? (
+          <form onSubmit={handleLogin} className="auth-form">
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="Your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                required
+              />
             </div>
-          )}
-        </form>
+            
+            <button 
+              type="submit" 
+              className="btn btn-primary auth-button"
+              disabled={loading}
+            >
+              {loading ? 'Sending...' : 'Send Verification Code'}
+            </button>
+            
+            {message && <div className="auth-message">{message}</div>}
+          </form>
+        ) : (
+          <form onSubmit={handleVerification} className="auth-form">
+            <div className="form-group">
+              <label htmlFor="verification">Verification Code</label>
+              <input
+                id="verification"
+                type="text"
+                placeholder="Enter verification code from your email"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                disabled={loading}
+                required
+                autoComplete="one-time-code"
+              />
+            </div>
+            
+            <button 
+              type="submit" 
+              className="btn btn-primary auth-button"
+              disabled={loading}
+            >
+              {loading ? 'Verifying...' : 'Verify Code'}
+            </button>
+            
+            <button 
+              type="button" 
+              className="btn btn-secondary auth-button"
+              onClick={() => setShowVerificationInput(false)}
+              disabled={loading}
+            >
+              Back
+            </button>
+            
+            {message && (
+              <div className="auth-message">
+                {message}
+                {message.includes('Check your email') && (
+                  <div className="auth-note" style={{ marginTop: '10px', fontSize: '14px' }}>
+                    Note: You may need to check your spam folder if you don't see the email.
+                  </div>
+                )}
+              </div>
+            )}
+          </form>
+        )}
       </div>
     </div>
   );

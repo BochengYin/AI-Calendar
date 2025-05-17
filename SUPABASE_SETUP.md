@@ -15,29 +15,27 @@ This guide walks you through setting up Supabase for authentication and database
 
 1. In your Supabase dashboard, go to "Authentication" → "Providers"
 2. Ensure "Email" provider is enabled
-3. Configure email auth:
+3. In Email Settings, make sure "Enable Email Confirmations" is turned ON
+4. Configure Email Templates:
    - Under "Email Auth," click "Email Templates"
-   - Customize the Magic Link template:
+   - Customize the "Confirmation" template (used for OTP):
      - From name: "AI Calendar"
      - From email: (use your email or keep default)
-     - Subject: "Your AI Calendar Login Link"
+     - Subject: "Your AI Calendar Verification Code"
      - Customize the template content with something like:
      ```html
-     <h2 style="color: #333; font-family: Arial, sans-serif;">AI Calendar Login</h2>
-     <p style="font-family: Arial, sans-serif; color: #444;">Click the button below to log in to your AI Calendar:</p>
+     <h2 style="color: #333; font-family: Arial, sans-serif;">AI Calendar Verification</h2>
+     <p style="font-family: Arial, sans-serif; color: #444;">Your verification code for AI Calendar is:</p>
      
-     <div style="margin: 30px 0;">
-       <a href="{{ .ConfirmationURL }}" style="background-color: #007AFF; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-family: Arial, sans-serif; font-weight: bold; display: inline-block;">
-         LOG IN TO AI CALENDAR
-       </a>
+     <div style="margin: 30px 0; padding: 20px; background-color: #f7f9fc; border-radius: 6px; text-align: center;">
+       <h1 style="font-family: monospace; font-size: 32px; letter-spacing: 5px; color: #007AFF;">{{ .Token }}</h1>
      </div>
      
-     <p style="font-family: Arial, sans-serif; color: #444;">Or copy and paste this URL into your browser:</p>
-     <p style="font-family: Arial, sans-serif; color: #666; word-break: break-all;">{{ .ConfirmationURL }}</p>
+     <p style="font-family: Arial, sans-serif; color: #444;">Enter this code in the verification screen to complete your login.</p>
      
      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-family: Arial, sans-serif; color: #666; font-size: 14px;">
-       <p>• This link will expire in 24 hours</p>
-       <p>• If you didn't request this email, you can safely ignore it</p>
+       <p>• This code will expire in 60 minutes</p>
+       <p>• If you didn't request this code, you can safely ignore this email</p>
      </div>
      
      <p style="text-align: center; margin-top: 30px; font-family: Arial, sans-serif; color: #999;">
@@ -157,8 +155,8 @@ For production, you can use Supabase's default email service (limited to 10 emai
 2. Open your app in the browser
 3. You should see the login screen
 4. Enter your email address
-5. Check your email for the magic link
-6. Click the link to log in
+5. Check your email for the verification code
+6. Enter the code in your app to log in
 
 ### 2. Test Database Access
 1. After logging in, create a calendar event using the chat
@@ -170,6 +168,7 @@ For production, you can use Supabase's default email service (limited to 10 emai
 - Verify your environment variables match the keys from Supabase
 - Ensure the SQL schema was executed correctly (check Tables section in Supabase)
 - If you get authentication errors, check that your redirect URLs are set correctly
+- For OTP issues, ensure "Enable Email Confirmations" is enabled in Authentication settings
 
 ## Security Best Practices
 
