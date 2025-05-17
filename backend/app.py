@@ -43,6 +43,9 @@ app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 logger.info("Flask app initialized with enhanced CORS support")
 
+# Get port from environment variable (useful for deployment)
+port = int(os.environ.get("PORT", 8000))
+
 # In-memory storage for events
 # In a production app, you'd use a database instead
 events = []
@@ -384,9 +387,9 @@ def test_openai():
         }), 500
 
 if __name__ == '__main__':
-    logger.info("Starting Flask server on port 8000")
+    logger.info(f"Starting Flask server on port {port}")
     try:
-        app.run(debug=True, port=8000)
+        app.run(host='0.0.0.0', debug=False, port=port)
     except Exception as e:
         logger.error(f"Failed to start Flask server: {e}")
         print(f"Error starting server: {e}") 
