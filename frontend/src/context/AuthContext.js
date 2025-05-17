@@ -11,17 +11,32 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    console.log('AuthContext initializing...');
+    
+    // Check if supabase client is properly initialized
+    if (!supabase) {
+      console.error('Supabase client is not properly initialized');
+      setError('Supabase client is not initialized');
+      setLoading(false);
+      return;
+    }
+
     // Check if there's an active session on initial load
     const initializeAuth = async () => {
       try {
         setLoading(true);
         
+        console.log('Checking for existing session...');
+        
         // Get the current session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
+          console.error('Session check error:', error.message);
           throw error;
         }
+        
+        console.log('Session check result:', data ? 'Session found' : 'No session');
         
         if (data?.session) {
           // Set the user if session exists
@@ -29,29 +44,42 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('Error checking authentication:', error);
-        setError(error.message);
+        setError(error.message || 'Authentication error');
       } finally {
         setLoading(false);
       }
     };
 
-    initializeAuth();
+    // Set up auth state listener 
+    let authListener = null;
+    
+    try {
+      initializeAuth();
 
-    // Listen for authentication state changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-        } else {
-          setUser(null);
+      // Listen for authentication state changes
+      const { data } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state changed:', event);
+          if (session?.user) {
+            setUser(session.user);
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
         }
-        setLoading(false);
-      }
-    );
+      );
+      
+      authListener = data;
+    } catch (err) {
+      console.error('Error in auth setup:', err);
+      setError(err.message || 'Auth setup error');
+      setLoading(false);
+    }
 
     // Cleanup subscription on unmount
     return () => {
       if (authListener?.subscription) {
+        console.log('Cleaning up auth listener');
         authListener.subscription.unsubscribe();
       }
     };
@@ -66,7 +94,7 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
     } catch (error) {
       console.error('Error signing out:', error);
-      setError(error.message);
+      setError(error.message || 'Sign out error');
     } finally {
       setLoading(false);
     }

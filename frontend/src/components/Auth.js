@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase/client';
 
 export const Auth = ({ onAuthenticated }) => {
@@ -7,6 +7,30 @@ export const Auth = ({ onAuthenticated }) => {
   const [message, setMessage] = useState('');
   const [showVerificationInput, setShowVerificationInput] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const [initError, setInitError] = useState(null);
+
+  // Check if Supabase is properly initialized
+  useEffect(() => {
+    if (!supabase) {
+      console.error('Supabase client is not initialized in Auth component');
+      setInitError('Authentication service is not available. Please check your configuration.');
+    } else {
+      console.log('Auth component: Supabase client initialized');
+      
+      // Testing supabase connection
+      const testConnection = async () => {
+        try {
+          await supabase.auth.getSession();
+          console.log('Supabase connection test successful');
+        } catch (error) {
+          console.error('Supabase connection test failed:', error);
+          setInitError('Could not connect to authentication service. Please try again later.');
+        }
+      };
+      
+      testConnection();
+    }
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -20,6 +44,8 @@ export const Auth = ({ onAuthenticated }) => {
       setLoading(true);
       setMessage('');
       
+      console.log('Sending OTP to email:', email);
+      
       // Send OTP to the user's email
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -28,7 +54,10 @@ export const Auth = ({ onAuthenticated }) => {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('OTP error:', error);
+        throw error;
+      }
       
       setMessage('Check your email for the login link!');
       setShowVerificationInput(true);
@@ -52,6 +81,8 @@ export const Auth = ({ onAuthenticated }) => {
       setLoading(true);
       setMessage('');
       
+      console.log('Verifying OTP code for email:', email);
+      
       // Verify the OTP code
       const { data, error } = await supabase.auth.verifyOtp({
         email,
@@ -59,10 +90,14 @@ export const Auth = ({ onAuthenticated }) => {
         type: 'email'
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Verification error:', error);
+        throw error;
+      }
       
       // Successfully verified
       if (data.user) {
+        console.log('User authenticated:', data.user.email);
         setMessage('Login successful!');
         onAuthenticated(data.user);
       }
@@ -73,6 +108,28 @@ export const Auth = ({ onAuthenticated }) => {
       setLoading(false);
     }
   };
+
+  // If there's an initialization error, show it
+  if (initError) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h1>🐱 AI Calendar</h1>
+          <h2>Authentication Error</h2>
+          <div className="auth-error-message">
+            {initError}
+          </div>
+          <p>Please check the console for more information and ensure your environment variables are set correctly.</p>
+          <button 
+            className="btn btn-primary auth-button"
+            onClick={() => window.location.reload()}
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-container">
