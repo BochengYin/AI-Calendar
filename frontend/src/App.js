@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Calendar } from './components/Calendar';
 import { Chatbot } from './components/Chatbot';
 import { UpcomingEvents } from './components/UpcomingEvents';
+import { Auth } from './components/Auth';
+import { useAuth } from './context/AuthContext';
 import './index.css';
 import axios from 'axios';
 
@@ -9,6 +11,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 function App() {
+  const { user, loading: authLoading, signOut } = useAuth();
   const [events, setEvents] = useState([]);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusInfo, setStatusInfo] = useState({
@@ -19,14 +22,22 @@ function App() {
   });
 
   useEffect(() => {
-    // Fetch events from the backend when the component mounts
-    fetchEvents();
-    checkSystemStatus();
-  }, []);
+    // Only fetch events if user is authenticated
+    if (user) {
+      fetchEvents();
+      checkSystemStatus();
+    }
+  }, [user]);
 
   const fetchEvents = async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/events`);
+      // Add the user ID to the request to fetch only this user's events
+      const response = await axios.get(`${API_BASE_URL}/api/events`, {
+        headers: { 
+          'Authorization': `Bearer ${user.id}`,
+          'User-Email': user.email
+        }
+      });
       
       // Ensure all events have IDs for proper handling
       const processedEvents = response.data.map(event => {
@@ -200,11 +211,33 @@ function App() {
     </div>
   );
 
+  // If authentication is still loading, show a loading spinner
+  if (authLoading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // If no user is authenticated, show the Auth component
+  if (!user) {
+    return <Auth onAuthenticated={(user) => console.log('User authenticated:', user)} />;
+  }
+
+  // User is authenticated, show the app
   return (
     <div className="app-container">
       <div className="app-header">
         <h1>🐱 AI Calendar</h1>
         <div className="header-actions">
+          <div className="user-profile">
+            <span className="user-email">{user.email}</span>
+            <button className="logout-button" onClick={signOut}>
+              Sign Out
+            </button>
+          </div>
           <button className="status-button" onClick={() => setShowStatusModal(true)}>
             👾 System Status
           </button>
@@ -221,7 +254,7 @@ function App() {
         </div>
         <div className="chat-panel">
           <div className="chatbot-container">
-            <Chatbot onEventAdded={handleChatResponse} />
+            <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
           </div>
         </div>
       </div>

@@ -16,11 +16,13 @@ An intelligent calendar application that uses AI to manage your events through n
 - React
 - React Big Calendar
 - CSS3 with modern styling
+- Supabase Authentication
 
 ### Backend
 - Flask (Python)
 - OpenAI API (GPT-4o-mini)
 - RESTful API design
+- Supabase (PostgreSQL Database)
 
 ## Setup and Installation
 
@@ -28,6 +30,10 @@ An intelligent calendar application that uses AI to manage your events through n
 - Node.js (v14+)
 - Python 3.9+
 - OpenAI API key
+- Supabase account (for authentication and database)
+
+### Supabase Setup
+See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions on setting up Supabase.
 
 ### Backend Setup
 1. Navigate to the backend directory:
@@ -46,9 +52,11 @@ An intelligent calendar application that uses AI to manage your events through n
    pip install -r requirements.txt
    ```
 
-4. Create a `.env` file with your OpenAI API key:
+4. Create a `.env` file with your API keys:
    ```
    OPENAI_API_KEY=your_api_key_here
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_KEY=your_supabase_service_role_key
    ```
 
 5. Start the backend server:
@@ -68,7 +76,14 @@ An intelligent calendar application that uses AI to manage your events through n
    npm install
    ```
 
-3. Start the development server:
+3. Create a `.env.development` file with your Supabase credentials:
+   ```
+   REACT_APP_API_URL=http://localhost:8000
+   REACT_APP_SUPABASE_URL=your_supabase_url
+   REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+4. Start the development server:
    ```
    npm start
    ```

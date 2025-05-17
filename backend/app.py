@@ -6,6 +6,9 @@ import logging
 from dotenv import load_dotenv
 import uuid
 from datetime import datetime
+import time
+import traceback
+import openai
 
 # Load environment variables first, before imports that might use them
 load_dotenv()
@@ -82,6 +85,14 @@ def save_events():
 
 # Load events on startup
 events = load_events()
+
+# Initialize OpenAI client
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if openai_api_key:
+    openai.api_key = openai_api_key
+    logger.info(f"OpenAI API key loaded (length: {len(openai_api_key)})")
+else:
+    logger.warning("OpenAI API key not found in environment variables.")
 
 @app.route('/api/events', methods=['GET'])
 def get_events():

@@ -1143,4 +1143,110 @@ body {
   opacity: 0.6;
   background-color: #f0d98b !important;
   color: #896c1d !important;
+}
+
+/* Authentication Styles */
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f7f8fa;
+}
+
+.auth-card {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  text-align: center;
+}
+
+.auth-card h1 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.auth-card h2 {
+  margin-bottom: 24px;
+  font-weight: 500;
+  color: #666;
+  font-size: 1.2rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-form .form-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.auth-form label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 500;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.auth-form input:focus {
+  border-color: var(--apple-blue);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+}
+
+.auth-button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+}
+
+.auth-message {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 6px;
+  background-color: rgba(0, 122, 255, 0.1);
+  color: var(--apple-blue);
+}
+
+/* User Profile */
+.user-profile {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.user-email {
+  margin-right: 10px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.logout-button {
+  background: transparent;
+  border: none;
+  color: var(--apple-red);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 5px 10px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.logout-button:hover {
+  background-color: rgba(255, 59, 48, 0.1);
 } 

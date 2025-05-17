@@ -10,7 +10,7 @@ const debug = (message, data) => {
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 console.log('Chatbot using API URL:', API_BASE_URL);
 
-export const Chatbot = ({ onEventAdded }) => {
+export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([
     { 
@@ -172,7 +172,7 @@ export const Chatbot = ({ onEventAdded }) => {
     try {
       // Send user message to backend with timeout
       const response = await axios.post(`${API_BASE_URL}/api/chat`, 
-        { message: input }, 
+        { message: input, userId: userId, userEmail: userEmail }, 
         { timeout: 10000 }
       );
       debug('Received response from backend', response.data);
@@ -190,11 +190,7 @@ export const Chatbot = ({ onEventAdded }) => {
         debug('Event operation:', response.data.event);
         
         // Pass both the event and action to the parent
-        onEventAdded({
-          event: response.data.event,
-          action: response.data.action || 'create',
-          message: response.data.message
-        });
+        onEventAdded(response.data);
       } else {
         debug('No event created from this message');
       }
