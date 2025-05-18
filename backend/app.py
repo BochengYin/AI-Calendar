@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import traceback
 import openai
+from supabase_client import get_supabase_client
 
 # Load environment variables first, before imports that might use them
 load_dotenv()
@@ -67,7 +68,7 @@ def after_request(response):
 # In-memory storage for events
 events = []
 
-# Load saved events if exists
+# Functions for local JSON storage (keeping for debugging and fallback)
 def load_events():
     try:
         if os.path.exists('events.json'):
@@ -84,17 +85,100 @@ def load_events():
     logger.info("No events loaded, starting with empty events list")
     return []
 
-# Save events to file
+# Save events to both JSON file and Supabase (if configured)
 def save_events():
+    # Save to JSON file (for debugging and fallback)
     try:
         with open('events.json', 'w') as f:
             json.dump(events, f)
             logger.info(f"Saved {len(events)} events to events.json")
     except Exception as e:
-        logger.error(f"Error saving events: {e}")
+        logger.error(f"Error saving events to JSON: {e}")
+    
+    # Save to Supabase if available
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            # This is a simplified approach - in production you'd handle upserts properly
+            # First clear existing events (not ideal for production)
+            # supabase.table('events').delete().execute()
+            
+            # Then insert all events
+            # NOTE: In a real app, you'd track which events need to be inserted/updated/deleted
+            # instead of this bulk approach
+            logger.info(f"Attempting to sync {len(events)} events to Supabase")
+            batch_size = 20  # Process in batches to avoid request size limits
+            
+            for i in range(0, len(events), batch_size):
+                batch = events[i:i+batch_size]
+                
+                # Only insert events that have all required fields
+                valid_events = []
+                for event in batch:
+                    # Make sure event has all required fields for Supabase
+                    if not all(k in event for k in ['title', 'start', 'end']):
+                        logger.warning(f"Skipping event missing required fields: {event}")
+                        continue
+                    
+                    # Prepare a clean version of the event for Supabase
+                    clean_event = {
+                        'id': event.get('id'),
+                        'title': event.get('title'),
+                        'description': event.get('description', ''),
+                        'start': event.get('start'),
+                        'end': event.get('end'),
+                        'allDay': event.get('allDay', False),
+                        'user_id': event.get('user_id')
+                    }
+                    valid_events.append(clean_event)
+                
+                if valid_events:
+                    try:
+                        # Using upsert to handle both inserts and updates
+                        response = supabase.table('events').upsert(valid_events).execute()
+                        logger.info(f"Synced batch of {len(valid_events)} events to Supabase")
+                    except Exception as e:
+                        logger.error(f"Error upserting events to Supabase: {e}")
+            
+            logger.info("Finished syncing events to Supabase")
+    except Exception as e:
+        logger.error(f"Error saving events to Supabase: {e}")
+        logger.error(traceback.format_exc())
 
-# Load events on startup
-events = load_events()
+# Function to load events from Supabase
+def load_events_from_supabase():
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            logger.warning("Supabase client not available, using JSON file only")
+            return None
+            
+        response = supabase.table('events').select('*').execute()
+        if response.data:
+            logger.info(f"Loaded {len(response.data)} events from Supabase")
+            return response.data
+        else:
+            logger.info("No events found in Supabase")
+            return []
+    except Exception as e:
+        logger.error(f"Error loading events from Supabase: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
+# Try to load events from Supabase first, fall back to JSON if needed
+supabase_events = load_events_from_supabase()
+if supabase_events is not None:
+    events = supabase_events
+    # Also save to JSON for debugging
+    try:
+        with open('events.json', 'w') as f:
+            json.dump(events, f)
+            logger.info(f"Saved {len(events)} events from Supabase to events.json")
+    except Exception as e:
+        logger.error(f"Error saving Supabase events to JSON: {e}")
+else:
+    # Fall back to JSON file
+    events = load_events()
 
 # Initialize OpenAI client
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -109,10 +193,32 @@ def get_events():
     logger.info("GET /api/events endpoint called")
     logger.info(f"Request headers: {dict(request.headers)}")
     
-    # Check for user_id in query parameters - this implements RLS-like filtering
+    # Check for user_id in query parameters
     user_id = request.args.get('user_id')
     user_email = request.headers.get('User-Email')
     
+    # Try to get events from Supabase first
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            logger.info(f"Fetching events from Supabase for user: {user_id}")
+            query = supabase.table('events').select('*')
+            
+            # Apply user filtering if needed (RLS should handle this automatically in Supabase)
+            if user_id:
+                query = query.eq('user_id', user_id)
+                
+            response = query.execute()
+            
+            if response.data:
+                logger.info(f"Returned {len(response.data)} events from Supabase")
+                return jsonify(response.data)
+    except Exception as e:
+        logger.error(f"Error fetching events from Supabase: {e}")
+        logger.error(traceback.format_exc())
+    
+    # Fall back to local JSON data if Supabase fails
+    logger.info("Falling back to local events data")
     if user_id:
         logger.info(f"Filtering events for user: {user_id} ({user_email})")
         # Filter events by user_id if provided
@@ -122,7 +228,7 @@ def get_events():
         ]
         return jsonify(filtered_events)
     else:
-        # If no user_id provided, return all events (for admin access or when not using RLS)
+        # If no user_id provided, return all events (for admin access)
         logger.warning("No user_id provided, returning all events")
         return jsonify(events)
 
@@ -148,6 +254,37 @@ def create_event():
             logger.info(f"Added user_id {user_id} to event")
     
     logger.debug(f"Received event: {event}")
+    
+    # Try to save to Supabase first
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            # Prepare clean event for Supabase
+            clean_event = {
+                'id': event.get('id'),
+                'title': event.get('title'),
+                'description': event.get('description', ''),
+                'start': event.get('start'),
+                'end': event.get('end'),
+                'allDay': event.get('allDay', False),
+                'user_id': event.get('user_id')
+            }
+            
+            logger.info(f"Inserting event into Supabase: {clean_event}")
+            response = supabase.table('events').insert(clean_event).execute()
+            logger.info(f"Supabase response: {response.data}")
+            
+            if response.data:
+                # Also add to local events array for backup
+                events.append(event)
+                save_events()  # This now only updates the JSON file
+                return jsonify(response.data[0]), 201
+    except Exception as e:
+        logger.error(f"Error saving event to Supabase: {e}")
+        logger.error(traceback.format_exc())
+    
+    # Fall back to just local JSON if Supabase fails
+    logger.info("Falling back to local JSON storage for event")
     events.append(event)
     save_events()
     return jsonify(event), 201
@@ -156,23 +293,43 @@ def create_event():
 def delete_event(event_id):
     logger.info(f"DELETE /api/events/{event_id} endpoint called")
     
-    # Find the event with the given ID
+    deleted_from_supabase = False
+    
+    # Try to delete from Supabase first
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            logger.info(f"Deleting event {event_id} from Supabase")
+            response = supabase.table('events').delete().eq('id', event_id).execute()
+            
+            if response.data:
+                logger.info(f"Successfully deleted event from Supabase: {response.data}")
+                deleted_from_supabase = True
+            else:
+                logger.warning(f"Event {event_id} not found in Supabase")
+    except Exception as e:
+        logger.error(f"Error deleting event from Supabase: {e}")
+        logger.error(traceback.format_exc())
+    
+    # Find and delete from local events list
     event_to_delete = None
     for i, event in enumerate(events):
         if str(event.get('id')) == event_id:
             event_to_delete = events.pop(i)
             break
     
-    if event_to_delete:
-        logger.info(f"Event deleted: {event_to_delete}")
-        save_events()
+    if event_to_delete or deleted_from_supabase:
+        if event_to_delete:
+            logger.info(f"Event deleted from local storage: {event_to_delete}")
+            save_events()  # Update JSON file
+        
         return jsonify({
             'status': 'success',
             'message': 'Event deleted successfully',
-            'deleted_event': event_to_delete
+            'deleted_event': event_to_delete if event_to_delete else {'id': event_id}
         })
     else:
-        logger.error(f"Event with ID {event_id} not found")
+        logger.error(f"Event with ID {event_id} not found in either storage")
         return jsonify({
             'status': 'error',
             'message': f'Event with ID {event_id} not found'
@@ -183,26 +340,58 @@ def update_event(event_id):
     logger.info(f"PUT /api/events/{event_id} endpoint called")
     updated_event = request.json
     
-    # Find the event with the given ID
+    # Make sure ID is preserved
+    updated_event['id'] = event_id
+    
+    updated_in_supabase = False
+    
+    # Try to update in Supabase first
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            # Prepare clean event for Supabase
+            clean_event = {
+                'id': event_id,
+                'title': updated_event.get('title'),
+                'description': updated_event.get('description', ''),
+                'start': updated_event.get('start'),
+                'end': updated_event.get('end'),
+                'allDay': updated_event.get('allDay', False),
+                'user_id': updated_event.get('user_id')
+            }
+            
+            logger.info(f"Updating event in Supabase: {clean_event}")
+            response = supabase.table('events').update(clean_event).eq('id', event_id).execute()
+            
+            if response.data and len(response.data) > 0:
+                logger.info(f"Successfully updated event in Supabase: {response.data}")
+                updated_in_supabase = True
+            else:
+                logger.warning(f"Event {event_id} not found in Supabase or no changes made")
+    except Exception as e:
+        logger.error(f"Error updating event in Supabase: {e}")
+        logger.error(traceback.format_exc())
+    
+    # Update in local events list
     event_updated = False
     for i, event in enumerate(events):
         if str(event.get('id')) == event_id:
-            # Preserve the ID
-            updated_event['id'] = event_id
             events[i] = updated_event
             event_updated = True
             break
     
-    if event_updated:
-        logger.info(f"Event updated: {updated_event}")
-        save_events()
+    if event_updated or updated_in_supabase:
+        if event_updated:
+            logger.info(f"Event updated in local storage: {updated_event}")
+            save_events()  # Update JSON file
+        
         return jsonify({
             'status': 'success',
             'message': 'Event updated successfully',
             'updated_event': updated_event
         })
     else:
-        logger.error(f"Event with ID {event_id} not found")
+        logger.error(f"Event with ID {event_id} not found in either storage")
         return jsonify({
             'status': 'error',
             'message': f'Event with ID {event_id} not found'
@@ -234,15 +423,46 @@ def chat():
                         'event': None
                     })
                 
-                # Add event to storage
-                logger.info("Creating new event")
+                # Generate ID if needed
+                if 'id' not in event:
+                    event['id'] = str(uuid.uuid4())
+                
+                # Try to save to Supabase first
+                supabase_success = False
+                try:
+                    supabase = get_supabase_client()
+                    if supabase:
+                        # Prepare clean event for Supabase
+                        clean_event = {
+                            'id': event.get('id'),
+                            'title': event.get('title'),
+                            'description': event.get('description', ''),
+                            'start': event.get('start'),
+                            'end': event.get('end'),
+                            'allDay': event.get('allDay', False),
+                            'user_id': event.get('user_id')
+                        }
+                        
+                        logger.info(f"Inserting event from chat into Supabase: {clean_event}")
+                        response = supabase.table('events').insert(clean_event).execute()
+                        
+                        if response.data:
+                            logger.info(f"Successfully saved chat event to Supabase: {response.data}")
+                            supabase_success = True
+                except Exception as e:
+                    logger.error(f"Error saving chat event to Supabase: {e}")
+                    logger.error(traceback.format_exc())
+                
+                # Add to local storage as well
+                logger.info("Adding chat event to local storage")
                 events.append(event)
-                save_events()
+                save_events()  # This now only updates the JSON file if Supabase failed
                 
                 return jsonify({
                     'message': response_message,
                     'event': event,
-                    'action': action
+                    'action': action,
+                    'storage': 'dual' if supabase_success else 'local_only'
                 })
             
             return jsonify({

@@ -1,7 +1,10 @@
 -- Supabase RLS Implementation for AI Calendar
 -- This migration applies best practices for Row Level Security
 
--- First, let's create the events table if it doesn't exist
+-- First, create the private schema if it doesn't exist
+CREATE SCHEMA IF NOT EXISTS private;
+
+-- Create the events table if it doesn't exist
 CREATE TABLE IF NOT EXISTS events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,

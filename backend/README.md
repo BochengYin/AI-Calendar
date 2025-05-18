@@ -39,10 +39,27 @@ This backend is configured for deployment on Render.com:
 
 ## API Endpoints
 
-- `GET /api/events`: Get all events
-- `POST /api/events`: Create a new event
-- `PUT /api/events/:id`: Update an event
-- `DELETE /api/events/:id`: Delete an event
-- `POST /api/chat`: Process a chat message and extract event details
-- `GET /api/health`: Check API health
+### Health Check Endpoint
+- `GET /api/health` - Check if the backend is running
+  - Returns: `{"status": "ok", "api_key_configured": true, ...}`
+
+### Events Endpoints
+- `GET /api/events` - Get all events
+- `POST /api/events` - Create a new event
+- `PUT /api/events/:id` - Update an event
+- `DELETE /api/events/:id` - Delete an event
+
+### Chat Endpoint
+- `POST /api/chat` - Send a message to the AI assistant
+
+## Troubleshooting
+
+If the health check is failing:
+1. Check that the server is running (`python app.py` or `gunicorn app:app`)
+2. Verify the API endpoint URL is correct
+3. Check CORS configuration if needed
+4. See `RENDER_DEPLOY.md` for specific Render deployment instructions
+
+## API Endpoints
+
 - `GET /api/test-openai`: Test OpenAI API connection 
