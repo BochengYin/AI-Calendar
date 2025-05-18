@@ -67,6 +67,7 @@ logger.info("Flask app initialized with enhanced CORS support for Vercel")
 
 # Get port from environment variable (useful for deployment)
 port = int(os.environ.get("PORT", 8000))
+logger.info(f"Using PORT environment variable: {port}")
 
 # In-memory storage for events
 # In a production app, you'd use a database instead
