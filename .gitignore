@@ -22,9 +22,15 @@ db.sqlite3-journal
 node_modules/
 /build
 /dist
+frontend/build/
+.env
+.env.*
+!.env.example
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 npm-debug.log*
 yarn-debug.log*
@@ -40,4 +46,8 @@ yarn-error.log*
 
 # Project specific
 backend/events.json
-backend/backend.log 
+backend/backend.log
+
+# Sensitive data
+**/client.js.bak
+# Add files that might contain API keys here 
