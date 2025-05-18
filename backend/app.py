@@ -43,6 +43,16 @@ logger.debug(f"OPENAI_API_KEY configured: {'Yes' if os.getenv('OPENAI_API_KEY') 
 logger.debug(f"OPENAI_API_KEY length: {len(os.getenv('OPENAI_API_KEY') or '')}")
 
 app = Flask(__name__)
+
+# Add ProxyFix middleware to handle Render's proxy correctly
+try:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    # Handle various proxy setups (X-Forwarded-For, etc.)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    logger.info("ProxyFix middleware applied")
+except ImportError:
+    logger.warning("ProxyFix middleware not available")
+
 # Update CORS configuration to allow requests from Vercel
 CORS(app, resources={r"/*": {"origins": [
     "https://ai-calendar-sigma.vercel.app", 
@@ -421,22 +431,16 @@ def chat():
         }), 500
 
 @app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])  # Add alternate route without /api prefix
 def health_check():
     logger.info("Health check endpoint called")
     has_api_key = bool(os.getenv('OPENAI_API_KEY'))
     key_length = len(os.getenv('OPENAI_API_KEY') or '')
     
-    # Debug environment variables
-    env_vars = {}
-    if os.getenv('DEBUG_ENDPOINTS') == 'true':
-        for key in ['PORT', 'PYTHONPATH', 'PATH']:
-            env_vars[key] = os.getenv(key, 'Not set')
-    
     # Log request information for debugging
     logger.info(f"Request URL: {request.url}")
     logger.info(f"Request Path: {request.path}")
     logger.info(f"Request Method: {request.method}")
-    logger.info(f"Request Headers: {dict(request.headers)}")
     
     response = jsonify({
         'status': 'ok',
@@ -445,7 +449,6 @@ def health_check():
         'python_version': os.sys.version,
         'cors': 'enabled',
         'timestamp': datetime.now().isoformat(),
-        'environment': env_vars,
         'request_path': request.path
     })
     
@@ -472,24 +475,28 @@ def test_openai():
             'message': message
         }), 500
 
-# Add a root endpoint for easy testing
+# Add direct routes without /api prefix - these are crucial fallbacks for Render
 @app.route('/', methods=['GET'])
 def root():
+    logger.info("Root endpoint called")
     return jsonify({
         'status': 'ok',
         'message': 'AI Calendar Backend API is running',
         'version': '1.0.0',
         'cors': 'Enabled for Vercel deployment',
         'endpoints': {
-            'health': '/api/health',
-            'events': '/api/events',
-            'chat': '/api/chat'
+            'root_health': '/health',
+            'root_events': '/events',
+            'root_chat': '/chat',
+            'api_health': '/api/health',
+            'api_events': '/api/events',
+            'api_chat': '/api/chat'
         }
     })
 
-# Add a dedicated /api endpoint
 @app.route('/api', methods=['GET'])
 def api_root():
+    logger.info("API root endpoint called")
     return jsonify({
         'status': 'ok',
         'message': 'AI Calendar API is available',
@@ -500,50 +507,107 @@ def api_root():
         }
     })
 
+# Absolute top level handler for the health check
+@app.route('/healthcheck', methods=['GET'])
+def alt_health_check():
+    logger.info("Alternate health check endpoint called")
+    return jsonify({
+        'status': 'ok',
+        'message': 'Backend is running',
+        'timestamp': datetime.now().isoformat()
+    })
+
 # Catch-all route for any undefined routes
 @app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def catch_all(path):
     logger.info(f"Catch-all route hit: /{path}")
     
+    # Convert the path to a standardized format
+    path = path.lower().strip('/')
+    
     # Special handling for paths that should start with /api but don't
-    if path == 'api/health' or path == 'api/events' or path == 'api/chat' or path == 'api':
-        logger.info(f"Redirecting /{path} to /api/{path.replace('api/', '')}")
-        # For api/X paths, redirect to the proper /api/X handler
-        if path == 'api':
-            return api_root()
-        elif path == 'api/health':
+    if path in ['api/health', 'health', 'api/events', 'events', 'api/chat', 'chat', 'api']:
+        logger.info(f"Redirecting /{path} to appropriate handler")
+        
+        # Route to the appropriate handler based on path and method
+        if path in ['api/health', 'health'] and request.method == 'GET':
             return health_check()
-        elif path.startswith('api/events'):
+        elif path in ['api/events', 'events']:
             if request.method == 'GET':
                 return get_events()
             elif request.method == 'POST':
                 return create_event()
-        elif path == 'api/chat' and request.method == 'POST':
+        elif path in ['api/chat', 'chat'] and request.method == 'POST':
             return chat()
-            
-    # Default 404 response with available endpoints
+        elif path == 'api' and request.method == 'GET':
+            return api_root()
+    
+    # Log all request details for debugging
+    logger.warning(f"404 for path: /{path}")
+    logger.warning(f"Full URL: {request.url}")
+    logger.warning(f"Method: {request.method}")
+    logger.warning(f"Headers: {dict(request.headers)}")
+    
+    # Default 404 response with helpful information
     return jsonify({
         'status': 'error',
         'message': f'Route not found: /{path}',
         'available_endpoints': {
             'root': '/',
             'api': '/api',
-            'health': '/api/health',
-            'events': '/api/events',
-            'chat': '/api/chat'
+            'api_health': '/api/health',
+            'health': '/health',
+            'api_events': '/api/events',
+            'events': '/events',
+            'api_chat': '/api/chat',
+            'chat': '/chat'
+        },
+        'request_details': {
+            'path': path,
+            'method': request.method,
+            'url': request.url
         }
     }), 404
 
 # Add an explicit OPTIONS handler for CORS preflight requests
 @app.route('/api/health', methods=['OPTIONS'])
+@app.route('/health', methods=['OPTIONS'])  # Alternate route without /api prefix
 @app.route('/api/events', methods=['OPTIONS'])
+@app.route('/events', methods=['OPTIONS'])  # Alternate route without /api prefix
 @app.route('/api/chat', methods=['OPTIONS'])
+@app.route('/chat', methods=['OPTIONS'])  # Alternate route without /api prefix
 def handle_options():
     response = jsonify({'status': 'ok'})
     response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS')
     return response
+
+# Add explicit versions of all routes without the /api prefix
+@app.route('/events', methods=['GET'])
+def get_events_alt():
+    logger.info("GET /events endpoint called (alternate route)")
+    return get_events()
+
+@app.route('/events', methods=['POST'])
+def create_event_alt():
+    logger.info("POST /events endpoint called (alternate route)")
+    return create_event()
+
+@app.route('/events/<event_id>', methods=['DELETE'])
+def delete_event_alt(event_id):
+    logger.info(f"DELETE /events/{event_id} endpoint called (alternate route)")
+    return delete_event(event_id)
+
+@app.route('/events/<event_id>', methods=['PUT'])
+def update_event_alt(event_id):
+    logger.info(f"PUT /events/{event_id} endpoint called (alternate route)")
+    return update_event(event_id)
+
+@app.route('/chat', methods=['POST'])
+def chat_alt():
+    logger.info("POST /chat endpoint called (alternate route)")
+    return chat()
 
 if __name__ == '__main__':
     logger.info(f"Starting Flask server on port {port}")
