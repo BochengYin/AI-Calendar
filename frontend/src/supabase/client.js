@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Initialize the Supabase client
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || "https://ssyhnabptfcxsyydexfc.supabase.co";
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNzeWhuYWJwdGZjeHN5eWRleGZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTU5NTQ4MzYsImV4cCI6MjAzMTUzMDgzNn0.Q4SZKfGdkYvTJg6KDYJcDKlMDXtKZbDXhX5SHvOYNIY";
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 // Log environment variables for debugging (URLs only, not keys)
 console.log('Supabase URL being used:', supabaseUrl);
@@ -23,7 +23,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create client with detailed options for better debugging
 export const supabase = createClient(
   supabaseUrl, 
-  supabaseAnonKey,
+  supabaseAnonKey || '',
   {
     auth: {
       autoRefreshToken: true,
