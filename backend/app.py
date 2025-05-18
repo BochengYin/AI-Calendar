@@ -44,9 +44,9 @@ logger.debug(f"OPENAI_API_KEY length: {len(os.getenv('OPENAI_API_KEY') or '')}")
 
 app = Flask(__name__)
 # Update CORS configuration to allow requests from Vercel
-CORS(app, resources={r"/api/*": {"origins": [
+CORS(app, resources={r"/*": {"origins": [
     "https://ai-calendar-sigma.vercel.app", 
-    "https://ai-calendar-gelb764fy-bochengs-projects.vercel.app",
+    "https://ai-calendar-git-main-bochengs-projects.vercel.app",
     "http://localhost:3000", 
     "*"
 ]}}, 
@@ -426,13 +426,27 @@ def health_check():
     has_api_key = bool(os.getenv('OPENAI_API_KEY'))
     key_length = len(os.getenv('OPENAI_API_KEY') or '')
     
+    # Debug environment variables
+    env_vars = {}
+    if os.getenv('DEBUG_ENDPOINTS') == 'true':
+        for key in ['PORT', 'PYTHONPATH', 'PATH']:
+            env_vars[key] = os.getenv(key, 'Not set')
+    
+    # Log request information for debugging
+    logger.info(f"Request URL: {request.url}")
+    logger.info(f"Request Path: {request.path}")
+    logger.info(f"Request Method: {request.method}")
+    logger.info(f"Request Headers: {dict(request.headers)}")
+    
     response = jsonify({
         'status': 'ok',
         'api_key_configured': has_api_key,
         'api_key_length': key_length,
         'python_version': os.sys.version,
         'cors': 'enabled',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'environment': env_vars,
+        'request_path': request.path
     })
     
     # Explicitly add CORS headers to this response
@@ -472,6 +486,53 @@ def root():
             'chat': '/api/chat'
         }
     })
+
+# Add a dedicated /api endpoint
+@app.route('/api', methods=['GET'])
+def api_root():
+    return jsonify({
+        'status': 'ok',
+        'message': 'AI Calendar API is available',
+        'endpoints': {
+            'health': '/api/health',
+            'events': '/api/events',
+            'chat': '/api/chat'
+        }
+    })
+
+# Catch-all route for any undefined routes
+@app.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+def catch_all(path):
+    logger.info(f"Catch-all route hit: /{path}")
+    
+    # Special handling for paths that should start with /api but don't
+    if path == 'api/health' or path == 'api/events' or path == 'api/chat' or path == 'api':
+        logger.info(f"Redirecting /{path} to /api/{path.replace('api/', '')}")
+        # For api/X paths, redirect to the proper /api/X handler
+        if path == 'api':
+            return api_root()
+        elif path == 'api/health':
+            return health_check()
+        elif path.startswith('api/events'):
+            if request.method == 'GET':
+                return get_events()
+            elif request.method == 'POST':
+                return create_event()
+        elif path == 'api/chat' and request.method == 'POST':
+            return chat()
+            
+    # Default 404 response with available endpoints
+    return jsonify({
+        'status': 'error',
+        'message': f'Route not found: /{path}',
+        'available_endpoints': {
+            'root': '/',
+            'api': '/api',
+            'health': '/api/health',
+            'events': '/api/events',
+            'chat': '/api/chat'
+        }
+    }), 404
 
 # Add an explicit OPTIONS handler for CORS preflight requests
 @app.route('/api/health', methods=['OPTIONS'])
