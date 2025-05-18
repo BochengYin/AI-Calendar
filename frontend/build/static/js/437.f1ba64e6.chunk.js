@@ -1,1 +1,0 @@
-"use strict";(self.webpackChunkai_calendar_frontend=self.webpackChunkai_calendar_frontend||[]).push([[437],{2437:e=>{e.exports=function(){throw new Error("ws does not work in the browser. Browser clients must use the native WebSocket object")}}}]);
