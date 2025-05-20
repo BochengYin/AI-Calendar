@@ -127,8 +127,9 @@ def save_events():
                         'description': event.get('description', ''),
                         'start': event.get('start'),
                         'end': event.get('end'),
-                        'allDay': event.get('allDay', False),
-                        'user_id': event.get('user_id')
+                        'all_day': event.get('allDay', False),
+                        'user_id': event.get('user_id'),
+                        'user_email': event.get('user_email')
                     }
                     valid_events.append(clean_event)
                 
@@ -156,7 +157,34 @@ def load_events_from_supabase():
         response = supabase.table('events').select('*').execute()
         if response.data:
             logger.info(f"Loaded {len(response.data)} events from Supabase")
-            return response.data
+            
+            # Convert snake_case fields from Supabase to camelCase for frontend
+            converted_events = []
+            for event in response.data:
+                # Create an adapted version of the event with proper field names
+                converted_event = {
+                    'id': event.get('id'),
+                    'title': event.get('title'),
+                    'description': event.get('description', ''),
+                    'start': event.get('start'),
+                    'end': event.get('end'),
+                    'allDay': event.get('all_day', False),  # Convert from snake_case to camelCase
+                    'user_id': event.get('user_id'),
+                    'user_email': event.get('user_email')
+                }
+                
+                # Add any additional fields from the database
+                if event.get('is_deleted'):
+                    converted_event['isDeleted'] = event.get('is_deleted')
+                if event.get('is_rescheduled'):
+                    converted_event['isRescheduled'] = event.get('is_rescheduled')
+                if event.get('rescheduled_from'):
+                    converted_event['rescheduledFrom'] = event.get('rescheduled_from')
+                
+                converted_events.append(converted_event)
+                
+            logger.debug(f"Successfully converted {len(converted_events)} events from Supabase format")
+            return converted_events
         else:
             logger.info("No events found in Supabase")
             return []
@@ -235,23 +263,30 @@ def get_events():
 @app.route('/api/events', methods=['POST'])
 def create_event():
     logger.info("POST /api/events endpoint called")
-    logger.info(f"Request headers: {dict(request.headers)}")
-    logger.info(f"Request data: {request.data}")
-    
     event = request.json
     
-    # Generate a unique ID if not provided
+    # Generate ID if not provided
     if 'id' not in event:
         event['id'] = str(uuid.uuid4())
     
-    # Add user_id from the authentication header if not already set
+    # Add user_id if available in the auth header
     if 'user_id' not in event:
-        # Get user_id from Authorization header (Bearer token)
         auth_header = request.headers.get('Authorization')
+        user_email = request.headers.get('User-Email')
+        
         if auth_header and auth_header.startswith('Bearer '):
             user_id = auth_header.split(' ')[1]
             event['user_id'] = user_id
             logger.info(f"Added user_id {user_id} to event")
+            
+            # Add user_email if available in headers
+            if user_email:
+                event['user_email'] = user_email
+                logger.info(f"Added user_email {user_email} to event")
+            else:
+                # Fallback to a default email if none provided
+                event['user_email'] = 'user@example.com'
+                logger.warning("No user email in request headers, using default")
     
     logger.debug(f"Received event: {event}")
     
@@ -259,26 +294,42 @@ def create_event():
     try:
         supabase = get_supabase_client()
         if supabase:
-            # Prepare clean event for Supabase
-            clean_event = {
-                'id': event.get('id'),
-                'title': event.get('title'),
-                'description': event.get('description', ''),
-                'start': event.get('start'),
-                'end': event.get('end'),
-                'allDay': event.get('allDay', False),
-                'user_id': event.get('user_id')
-            }
+            # Validate required fields for Supabase schema
+            required_fields = ['id', 'title', 'start', 'end', 'user_id', 'user_email']
             
-            logger.info(f"Inserting event into Supabase: {clean_event}")
-            response = supabase.table('events').insert(clean_event).execute()
-            logger.info(f"Supabase response: {response.data}")
+            # Ensure user_email is present (add default if missing)
+            if 'user_email' not in event and 'user_id' in event:
+                event['user_email'] = 'user@example.com'
+                logger.info(f"Added default user_email to event with ID {event.get('id')}")
             
-            if response.data:
-                # Also add to local events array for backup
-                events.append(event)
-                save_events()  # This now only updates the JSON file
-                return jsonify(response.data[0]), 201
+            missing_fields = [field for field in required_fields if field not in event]
+            
+            if missing_fields:
+                error_msg = f"Cannot save to Supabase: Missing required fields: {missing_fields}"
+                logger.error(error_msg)
+                # Will fall back to local storage below
+            else:
+                # Prepare clean event for Supabase
+                clean_event = {
+                    'id': event.get('id'),
+                    'title': event.get('title'),
+                    'description': event.get('description', ''),
+                    'start': event.get('start'),
+                    'end': event.get('end'),
+                    'all_day': event.get('allDay', False),
+                    'user_id': event.get('user_id'),
+                    'user_email': event.get('user_email')
+                }
+                
+                logger.info(f"Inserting event into Supabase: {clean_event}")
+                response = supabase.table('events').insert(clean_event).execute()
+                logger.info(f"Supabase response: {response.data}")
+                
+                if response.data:
+                    # Also add to local events array for backup
+                    events.append(event)
+                    save_events()  # This now only updates the JSON file
+                    return jsonify(response.data[0]), 201
     except Exception as e:
         logger.error(f"Error saving event to Supabase: {e}")
         logger.error(traceback.format_exc())
@@ -343,31 +394,53 @@ def update_event(event_id):
     # Make sure ID is preserved
     updated_event['id'] = event_id
     
+    # Get user email from headers if available
+    user_email = request.headers.get('User-Email')
+    if user_email and 'user_email' not in updated_event:
+        updated_event['user_email'] = user_email
+        logger.info(f"Added user_email {user_email} to updated event")
+    
     updated_in_supabase = False
     
     # Try to update in Supabase first
     try:
         supabase = get_supabase_client()
         if supabase:
-            # Prepare clean event for Supabase
-            clean_event = {
-                'id': event_id,
-                'title': updated_event.get('title'),
-                'description': updated_event.get('description', ''),
-                'start': updated_event.get('start'),
-                'end': updated_event.get('end'),
-                'allDay': updated_event.get('allDay', False),
-                'user_id': updated_event.get('user_id')
-            }
+            # Validate required fields
+            required_fields = ['id', 'title', 'start', 'end', 'user_id', 'user_email']
             
-            logger.info(f"Updating event in Supabase: {clean_event}")
-            response = supabase.table('events').update(clean_event).eq('id', event_id).execute()
+            # Ensure user_email is present (add default if missing)
+            if 'user_email' not in updated_event and 'user_id' in updated_event:
+                updated_event['user_email'] = 'user@example.com'
+                logger.info(f"Added default user_email to updated event with ID {event_id}")
             
-            if response.data and len(response.data) > 0:
-                logger.info(f"Successfully updated event in Supabase: {response.data}")
-                updated_in_supabase = True
+            missing_fields = [field for field in required_fields if field not in updated_event]
+            
+            if missing_fields:
+                error_msg = f"Cannot update in Supabase: Missing required fields: {missing_fields}"
+                logger.error(error_msg)
+                # Will still try to update local storage below
             else:
-                logger.warning(f"Event {event_id} not found in Supabase or no changes made")
+                # Prepare clean event for Supabase
+                clean_event = {
+                    'id': event_id,
+                    'title': updated_event.get('title'),
+                    'description': updated_event.get('description', ''),
+                    'start': updated_event.get('start'),
+                    'end': updated_event.get('end'),
+                    'all_day': updated_event.get('allDay', False),
+                    'user_id': updated_event.get('user_id'),
+                    'user_email': updated_event.get('user_email')
+                }
+                
+                logger.info(f"Updating event in Supabase: {clean_event}")
+                response = supabase.table('events').update(clean_event).eq('id', event_id).execute()
+                
+                if response.data and len(response.data) > 0:
+                    logger.info(f"Successfully updated event in Supabase: {response.data}")
+                    updated_in_supabase = True
+                else:
+                    logger.warning(f"Event {event_id} not found in Supabase or no changes made")
     except Exception as e:
         logger.error(f"Error updating event in Supabase: {e}")
         logger.error(traceback.format_exc())
@@ -401,7 +474,11 @@ def update_event(event_id):
 def chat():
     logger.info("POST /api/chat endpoint called")
     message = request.json.get('message', '')
+    user_id = request.json.get('userId')
+    user_email = request.json.get('userEmail', 'user@example.com')
+    
     logger.debug(f"Received message: {message}")
+    logger.debug(f"Message from user_id: {user_id}, email: {user_email}")
     
     # Process the message using ChatGPT to extract event details
     try:
@@ -427,28 +504,53 @@ def chat():
                 if 'id' not in event:
                     event['id'] = str(uuid.uuid4())
                 
+                # Set user identification
+                if user_id and 'user_id' not in event:
+                    event['user_id'] = user_id
+                
+                # Set user email (required by Supabase schema)
+                if 'user_email' not in event:
+                    event['user_email'] = user_email
+                
                 # Try to save to Supabase first
                 supabase_success = False
                 try:
                     supabase = get_supabase_client()
                     if supabase:
-                        # Prepare clean event for Supabase
-                        clean_event = {
-                            'id': event.get('id'),
-                            'title': event.get('title'),
-                            'description': event.get('description', ''),
-                            'start': event.get('start'),
-                            'end': event.get('end'),
-                            'allDay': event.get('allDay', False),
-                            'user_id': event.get('user_id')
-                        }
+                        # Validate required fields for Supabase schema
+                        required_fields = ['id', 'title', 'start', 'end', 'user_id', 'user_email']
                         
-                        logger.info(f"Inserting event from chat into Supabase: {clean_event}")
-                        response = supabase.table('events').insert(clean_event).execute()
+                        # Ensure user_email is present (add default if missing)
+                        if 'user_email' not in event and 'user_id' in event:
+                            event['user_email'] = 'user@example.com'
+                            logger.info(f"Added default user_email to event with ID {event.get('id')}")
                         
-                        if response.data:
-                            logger.info(f"Successfully saved chat event to Supabase: {response.data}")
-                            supabase_success = True
+                        missing_fields = [field for field in required_fields if field not in event]
+                        
+                        if missing_fields:
+                            error_msg = f"Cannot save to Supabase: Missing required fields: {missing_fields}"
+                            logger.error(error_msg)
+                            # Will fall back to local storage below
+                        else:                      
+                            # Prepare clean event for Supabase
+                            clean_event = {
+                                'id': event.get('id'),
+                                'title': event.get('title'),
+                                'description': event.get('description', ''),
+                                'start': event.get('start'),
+                                'end': event.get('end'),
+                                'all_day': event.get('allDay', False),
+                                'user_id': event.get('user_id'),
+                                'user_email': event.get('user_email')
+                            }
+                            
+                            logger.info(f"Inserting event from chat into Supabase: {clean_event}")
+                            response = supabase.table('events').insert(clean_event).execute()
+                            
+                            if response.data:
+                                logger.info(f"Successfully saved chat event to Supabase: {response.data}")
+                                supabase_success = True
+                                
                 except Exception as e:
                     logger.error(f"Error saving chat event to Supabase: {e}")
                     logger.error(traceback.format_exc())
@@ -481,11 +583,57 @@ def chat():
             'message': f"Sorry, an error occurred: {str(e)}"
         }), 500
 
+@app.route('/api/test-supabase', methods=['GET'])
+def test_supabase():
+    logger.info("Testing Supabase connection")
+    try:
+        supabase = get_supabase_client()
+        if not supabase:
+            return jsonify({
+                'status': 'error',
+                'message': 'Supabase client not initialized'
+            }), 500
+            
+        # Test basic query
+        response = supabase.table('events').select('id', count='exact').limit(1).execute()
+        
+        # Return detailed connection info
+        return jsonify({
+            'status': 'success',
+            'message': 'Supabase connection successful',
+            'event_count': response.count,
+            'sample_data': response.data[:1] if response.data else None,
+            'supabase_url': os.environ.get('SUPABASE_URL', 'Not set'),
+            'api_key_length': len(os.environ.get('SUPABASE_KEY', '')),
+            'rls_active': True  # Supabase has RLS enabled by default
+        })
+    except Exception as e:
+        logger.error(f"Supabase connection test failed: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            'status': 'error',
+            'message': f'Supabase connection failed: {str(e)}',
+            'supabase_url': os.environ.get('SUPABASE_URL', 'Not set'),
+            'api_key_length': len(os.environ.get('SUPABASE_KEY', ''))
+        }), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     logger.info("Health check endpoint called")
     has_api_key = bool(os.getenv('OPENAI_API_KEY'))
     key_length = len(os.getenv('OPENAI_API_KEY') or '')
+    
+    # Check Supabase connection
+    supabase_status = 'unknown'
+    try:
+        supabase = get_supabase_client()
+        if supabase:
+            # Simple test query
+            supabase.table('events').select('id', count='exact').limit(1).execute()
+            supabase_status = 'connected'
+    except Exception as e:
+        logger.error(f"Supabase health check failed: {str(e)}")
+        supabase_status = 'error'
     
     response = jsonify({
         'status': 'ok',
@@ -493,6 +641,7 @@ def health_check():
         'api_key_length': key_length,
         'python_version': os.sys.version,
         'cors': 'enabled',
+        'supabase_status': supabase_status,
         'timestamp': datetime.now().isoformat(),
         'request_path': request.path
     })
@@ -520,7 +669,7 @@ def root():
 
 if __name__ == '__main__':
     # Get port from environment variable (useful for deployment)
-    port = int(os.environ.get("PORT", 9999))
+    port = int(os.environ.get("PORT", 12345))
     logger.info(f"Starting Flask server on port {port}")
     try:
         app.run(host='0.0.0.0', debug=False, port=port)

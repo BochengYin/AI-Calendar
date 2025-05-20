@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS events (
   title TEXT NOT NULL,
   description TEXT,
   start TIMESTAMPTZ NOT NULL,
-  end TIMESTAMPTZ NOT NULL,
+  "end" TIMESTAMPTZ NOT NULL,
   allDay BOOLEAN DEFAULT FALSE,
   user_id UUID DEFAULT auth.uid(),
   created_at TIMESTAMPTZ DEFAULT NOW(),
