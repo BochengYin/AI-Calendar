@@ -279,14 +279,16 @@ def create_event():
             event['user_id'] = user_id
             logger.info(f"Added user_id {user_id} to event")
             
-            # Add user_email if available in headers
-            if user_email:
-                event['user_email'] = user_email
-                logger.info(f"Added user_email {user_email} to event")
-            else:
-                # Fallback to a default email if none provided
-                event['user_email'] = 'user@example.com'
-                logger.warning("No user email in request headers, using default")
+            # Ensure user_email is present (add default if missing)
+            if 'user_email' not in event and 'user_id' in event:
+                # Check if user email is in headers before defaulting
+                user_email_header = request.headers.get('User-Email')
+                if user_email_header:
+                    event['user_email'] = user_email_header
+                    logger.info(f"Added user_email from header: {user_email_header} to event with ID {event.get('id')}")
+                else:
+                    event['user_email'] = 'user@example.com'
+                    logger.warning(f"No user email found for user_id {event.get('user_id')}, using default")
     
     logger.debug(f"Received event: {event}")
     
@@ -299,8 +301,14 @@ def create_event():
             
             # Ensure user_email is present (add default if missing)
             if 'user_email' not in event and 'user_id' in event:
-                event['user_email'] = 'user@example.com'
-                logger.info(f"Added default user_email to event with ID {event.get('id')}")
+                # Check if user email is in headers before defaulting
+                user_email_header = request.headers.get('User-Email')
+                if user_email_header:
+                    event['user_email'] = user_email_header
+                    logger.info(f"Added user_email from header: {user_email_header} to event with ID {event.get('id')}")
+                else:
+                    event['user_email'] = 'user@example.com'
+                    logger.warning(f"No user email found for user_id {event.get('user_id')}, using default")
             
             missing_fields = [field for field in required_fields if field not in event]
             
@@ -411,8 +419,14 @@ def update_event(event_id):
             
             # Ensure user_email is present (add default if missing)
             if 'user_email' not in updated_event and 'user_id' in updated_event:
-                updated_event['user_email'] = 'user@example.com'
-                logger.info(f"Added default user_email to updated event with ID {event_id}")
+                # Check if user email is in headers before defaulting
+                user_email_header = request.headers.get('User-Email')
+                if user_email_header:
+                    updated_event['user_email'] = user_email_header
+                    logger.info(f"Added user_email from header: {user_email_header} to updated event with ID {event_id}")
+                else:
+                    updated_event['user_email'] = 'user@example.com'
+                    logger.warning(f"No user email found for user_id {updated_event.get('user_id')}, using default")
             
             missing_fields = [field for field in required_fields if field not in updated_event]
             
@@ -508,9 +522,16 @@ def chat():
                 if user_id and 'user_id' not in event:
                     event['user_id'] = user_id
                 
-                # Set user email (required by Supabase schema)
-                if 'user_email' not in event:
-                    event['user_email'] = user_email
+                # Ensure user_email is present (add default if missing)
+                if 'user_email' not in event and 'user_id' in event:
+                    # We should already have user_email from the request.json.get('userEmail')
+                    # But double-check it's not empty
+                    if user_email and user_email != 'user@example.com':
+                        event['user_email'] = user_email
+                        logger.info(f"Using provided user_email: {user_email} for event with ID {event.get('id')}")
+                    else:
+                        event['user_email'] = 'user@example.com'
+                        logger.warning(f"No valid user email found for user_id {event.get('user_id')}, using default")
                 
                 # Try to save to Supabase first
                 supabase_success = False
@@ -522,8 +543,14 @@ def chat():
                         
                         # Ensure user_email is present (add default if missing)
                         if 'user_email' not in event and 'user_id' in event:
-                            event['user_email'] = 'user@example.com'
-                            logger.info(f"Added default user_email to event with ID {event.get('id')}")
+                            # Check if user email is in headers before defaulting
+                            user_email_header = request.headers.get('User-Email')
+                            if user_email_header:
+                                event['user_email'] = user_email_header
+                                logger.info(f"Added user_email from header: {user_email_header} to event with ID {event.get('id')}")
+                            else:
+                                event['user_email'] = 'user@example.com'
+                                logger.warning(f"No user email found for user_id {event.get('user_id')}, using default")
                         
                         missing_fields = [field for field in required_fields if field not in event]
                         
