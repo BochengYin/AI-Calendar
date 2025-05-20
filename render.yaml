@@ -3,12 +3,12 @@ services:
     name: ai-calendar-backend
     env: python
     buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && gunicorn app:app
+    startCommand: cd backend && gunicorn wsgi:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: PORT
-        value: 12345
+        value: 10000
       - key: OPENAI_API_KEY
         sync: false
       - key: SUPABASE_URL
