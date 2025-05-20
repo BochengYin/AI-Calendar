@@ -154,6 +154,10 @@ def process_event_request(user_message):
             If the user wants to RESCHEDULE an event, extract the original event details along with the new time, and include
             "action": "reschedule" in your response.
             
+            IMPORTANT: Return your response in valid JSON format WITHOUT ANY COMMENTS. Do not include explanatory comments
+            in the JSON. If you need to explain assumptions or provide additional context, include that information in the
+            description field or in the message field.
+            
             Return your response in JSON format like this:
             For regular event creation:
             {
@@ -162,7 +166,7 @@ def process_event_request(user_message):
                     "start": "ISO date string",
                     "end": "ISO date string",
                     "allDay": false,
-                    "description": "Event description"
+                    "description": "Event description. Include any assumptions or explanations here."
                 },
                 "message": "Your response to the user",
                 "action": "create"
@@ -187,7 +191,7 @@ def process_event_request(user_message):
                     "start": "ISO date string of new time",
                     "end": "ISO date string of new time",
                     "allDay": false,
-                    "description": "Event description"
+                    "description": "Event description. Include any assumptions about times here."
                 },
                 "message": "Your response to the user",
                 "action": "reschedule"
