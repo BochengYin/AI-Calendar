@@ -4,9 +4,10 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import moment from 'moment';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../supabase/client';
 
 // Backend API URL - easier to change if needed
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 
 const localizer = momentLocalizer(moment);
 
@@ -107,9 +108,13 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     };
     
     try {
+      // Get the current session to get the access token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
       const response = await axios.post(`${API_BASE_URL}/api/events`, newEvent, {
         headers: {
-          'Authorization': `Bearer ${user.id}`,
+          'Authorization': accessToken ? `Bearer ${accessToken}` : '',
           'User-Email': user.email
         }
       });

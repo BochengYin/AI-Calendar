@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { supabase } from '../supabase/client';
 
 // Helper debug function
 const debug = (message, data) => {
@@ -7,7 +8,7 @@ const debug = (message, data) => {
 };
 
 // Backend API URL - easier to change if needed
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 console.log('Chatbot using API URL:', API_BASE_URL);
 
 export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
@@ -170,10 +171,20 @@ export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
     debug('Sending message to backend', input);
     
     try {
+      // Get the current session to get the access token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
       // Send user message to backend with timeout
       const response = await axios.post(`${API_BASE_URL}/api/chat`, 
         { message: input, userId: userId, userEmail: userEmail }, 
-        { timeout: 10000 }
+        { 
+          timeout: 10000,
+          headers: {
+            'Authorization': accessToken ? `Bearer ${accessToken}` : '',
+            'User-Email': userEmail
+          }
+        }
       );
       debug('Received response from backend', response.data);
       
@@ -198,31 +209,24 @@ export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
       debug('Error sending message', error);
       console.error('Error details:', error.response || error);
       
-      // Add error message with more details
-      let errorMessage = 'Sorry, there was an error processing your request.';
-      
-      if (error.response) {
-        // The server responded with an error status
-        debug('Server responded with error', error.response);
-        if (error.response.data && error.response.data.message) {
-          errorMessage = error.response.data.message;
-        } else {
-          errorMessage = `Error ${error.response.status}: ${error.response.statusText}`;
-        }
-      } else if (error.request) {
-        // The request was made but no response was received
-        debug('No response received from server', error.request);
-        errorMessage = 'No response from server. Please check if the backend is running.';
-      }
-      
-      const errorMsg = { 
+      // Add error message to chat
+      const errorMessage = { 
         id: messages.length + 2, 
-        text: errorMessage, 
-        sender: 'bot' 
+        text: `Sorry, I couldn't process that request. ${error.response?.data?.message || error.message || 'An error occurred.'}`, 
+        sender: 'bot',
+        isError: true
       };
-      setMessages(prev => [...prev, errorMsg]);
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      
+      // Scroll to bottom again after adding response
+      setTimeout(() => {
+        const chatContainer = document.querySelector('.chat-messages');
+        if (chatContainer) {
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+      }, 100);
     }
   };
 

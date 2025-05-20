@@ -275,20 +275,54 @@ def create_event():
         user_email = request.headers.get('User-Email')
         
         if auth_header and auth_header.startswith('Bearer '):
-            user_id = auth_header.split(' ')[1]
+            # Extract JWT token
+            token = auth_header.split(' ')[1]
+            
+            # If user_id is already provided in the request body, use that
+            if 'user_id' in event:
+                user_id = event['user_id']
+                logger.info(f"Using provided user_id: {user_id}")
+            else:
+                # Otherwise try to extract from the token or use the token itself as a fallback
+                try:
+                    # Try to decode the JWT token to extract the user ID
+                    # This is a simple implementation - in production you'd verify the token
+                    import base64
+                    import json
+                    
+                    # Get the payload part of the JWT (second part)
+                    payload = token.split('.')[1]
+                    # Add padding if needed
+                    payload += '=' * (4 - len(payload) % 4)
+                    # Decode the payload
+                    decoded = base64.b64decode(payload)
+                    payload_data = json.loads(decoded)
+                    
+                    # Extract the sub claim which contains the user ID
+                    if 'sub' in payload_data:
+                        user_id = payload_data['sub']
+                        logger.info(f"Extracted user_id from JWT: {user_id}")
+                    else:
+                        # Fallback to using the token itself
+                        user_id = token
+                        logger.warning(f"Could not extract user_id from JWT, using token as user_id")
+                except Exception as e:
+                    # If decoding fails, use the token as the user ID
+                    logger.error(f"Error decoding JWT: {e}")
+                    user_id = token
+                    logger.warning(f"Using token as user_id due to decoding error")
+            
             event['user_id'] = user_id
             logger.info(f"Added user_id {user_id} to event")
             
-            # Ensure user_email is present (add default if missing)
-            if 'user_email' not in event and 'user_id' in event:
-                # Check if user email is in headers before defaulting
-                user_email_header = request.headers.get('User-Email')
-                if user_email_header:
-                    event['user_email'] = user_email_header
-                    logger.info(f"Added user_email from header: {user_email_header} to event with ID {event.get('id')}")
-                else:
-                    event['user_email'] = 'user@example.com'
-                    logger.warning(f"No user email found for user_id {event.get('user_id')}, using default")
+            # Add user_email if available in headers
+            if user_email:
+                event['user_email'] = user_email
+                logger.info(f"Added user_email {user_email} to event")
+            else:
+                # Fallback to a default email if none provided
+                event['user_email'] = 'user@example.com'
+                logger.warning("No user email in request headers, using default")
     
     logger.debug(f"Received event: {event}")
     
@@ -408,6 +442,44 @@ def update_event(event_id):
         updated_event['user_email'] = user_email
         logger.info(f"Added user_email {user_email} to updated event")
     
+    # Extract user_id from JWT token if available
+    if 'user_id' not in updated_event:
+        auth_header = request.headers.get('Authorization')
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            # Extract JWT token
+            token = auth_header.split(' ')[1]
+            
+            try:
+                # Try to decode the JWT token to extract the user ID
+                import base64
+                import json
+                
+                # Get the payload part of the JWT (second part)
+                payload = token.split('.')[1]
+                # Add padding if needed
+                payload += '=' * (4 - len(payload) % 4)
+                # Decode the payload
+                decoded = base64.b64decode(payload)
+                payload_data = json.loads(decoded)
+                
+                # Extract the sub claim which contains the user ID
+                if 'sub' in payload_data:
+                    user_id = payload_data['sub']
+                    logger.info(f"Extracted user_id from JWT: {user_id}")
+                else:
+                    # Fallback to using the token itself
+                    user_id = token
+                    logger.warning(f"Could not extract user_id from JWT, using token as user_id")
+            except Exception as e:
+                # If decoding fails, use the token as the user ID
+                logger.error(f"Error decoding JWT: {e}")
+                user_id = token
+                logger.warning(f"Using token as user_id due to decoding error")
+            
+            updated_event['user_id'] = user_id
+            logger.info(f"Added user_id {user_id} to updated event")
+    
     updated_in_supabase = False
     
     # Try to update in Supabase first
@@ -490,6 +562,48 @@ def chat():
     message = request.json.get('message', '')
     user_id = request.json.get('userId')
     user_email = request.json.get('userEmail', 'user@example.com')
+    
+    # Extract user_id from JWT token if available and not provided in the request
+    if not user_id:
+        auth_header = request.headers.get('Authorization')
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            # Extract JWT token
+            token = auth_header.split(' ')[1]
+            
+            try:
+                # Try to decode the JWT token to extract the user ID
+                import base64
+                import json
+                
+                # Get the payload part of the JWT (second part)
+                payload = token.split('.')[1]
+                # Add padding if needed
+                payload += '=' * (4 - len(payload) % 4)
+                # Decode the payload
+                decoded = base64.b64decode(payload)
+                payload_data = json.loads(decoded)
+                
+                # Extract the sub claim which contains the user ID
+                if 'sub' in payload_data:
+                    user_id = payload_data['sub']
+                    logger.info(f"Extracted user_id from JWT: {user_id}")
+                else:
+                    # Fallback to using the token itself
+                    user_id = token
+                    logger.warning(f"Could not extract user_id from JWT, using token as user_id")
+            except Exception as e:
+                # If decoding fails, use the token as the user ID
+                logger.error(f"Error decoding JWT: {e}")
+                user_id = token
+                logger.warning(f"Using token as user_id due to decoding error")
+    
+    # Get user email from headers if not provided in the request
+    if user_email == 'user@example.com':
+        header_email = request.headers.get('User-Email')
+        if header_email:
+            user_email = header_email
+            logger.info(f"Using email from headers: {user_email}")
     
     logger.debug(f"Received message: {message}")
     logger.debug(f"Message from user_id: {user_id}, email: {user_email}")

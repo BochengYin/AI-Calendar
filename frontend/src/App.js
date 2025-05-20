@@ -6,9 +6,10 @@ import { Auth } from './components/Auth';
 import { useAuth } from './context/AuthContext';
 import './index.css';
 import axios from 'axios';
+import { supabase } from './supabase/client';
 
 // Backend API URL - easier to change if needed
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -30,10 +31,14 @@ function App() {
 
   const fetchEvents = async () => {
     try {
+      // Get the current session to get the access token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
       // Add explicit user_id filter to improve RLS performance
       const response = await axios.get(`${API_BASE_URL}/api/events`, {
         headers: {
-          Authorization: `Bearer ${user.id}`,
+          Authorization: accessToken ? `Bearer ${accessToken}` : '',
           'User-Email': user.email
         },
         params: {
