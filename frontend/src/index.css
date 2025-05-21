@@ -68,6 +68,8 @@ body {
   box-shadow: var(--shadow-sm);
   position: relative;
   z-index: 10;
+  height: 40px;
+  flex-shrink: 0;
 }
 
 .app-header h1 {
@@ -103,7 +105,36 @@ body {
   transform: scale(0.98);
 }
 
+.signout-button,
+.system-status-button {
+  background-color: var(--apple-gray5);
+  color: var(--apple-blue);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.signout-button:hover,
+.system-status-button:hover {
+  background-color: var(--apple-gray4);
+}
+
+.signout-button {
+  margin-left: 10px;
+}
+
 /* Main content area */
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 50px - 40px);
+  overflow: hidden;
+}
+
 .main-content {
   display: flex;
   flex: 1;
@@ -119,7 +150,9 @@ body {
   flex-direction: column;
   min-width: 250px;
   max-width: 300px;
-  height: calc(100vh - 80px);
+  height: 100%;
+  overflow-y: auto;
+  flex: 0 0 280px;
 }
 
 /* Chat panel */
@@ -128,12 +161,14 @@ body {
   flex-direction: column;
   min-width: 300px;
   max-width: 380px;
-  height: calc(100vh - 80px);
+  height: 100%;
+  overflow-y: auto;
+  flex: 0 0 320px;
 }
 
 /* Calendar view */
 .calendar-container {
-  flex: 2;
+  flex: 1;
   background-color: var(--system-background);
   border-radius: 12px;
   padding: 16px;
@@ -1356,6 +1391,8 @@ body {
   padding: 10px;
   font-size: 0.9em;
   border-bottom: 1px solid #e0a800;
+  height: 50px;
+  flex-shrink: 0;
 }
 
 /* Add some responsive design for the banner */

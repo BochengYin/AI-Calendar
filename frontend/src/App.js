@@ -277,7 +277,6 @@ function App() {
         <div className="main-layout">
           <header className="app-header">
             <div className="logo-and-title">
-               <img src="/logo.png" alt="AI Calendar Logo" className="app-logo" /> 
               <h1>AI Calendar</h1>
             </div>
             {user && (
