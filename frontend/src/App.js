@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Calendar } from './components/Calendar';
 import { Chatbot } from './components/Chatbot';
 import { UpcomingEvents } from './components/UpcomingEvents';
@@ -7,6 +7,7 @@ import { useAuth } from './context/AuthContext';
 import './index.css';
 import axios from 'axios';
 import { supabase } from './supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 // Backend API URL - easier to change if needed
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
@@ -21,16 +22,14 @@ function App() {
     apiQuotaStatus: 'Checking...',
     lastChecked: new Date().toLocaleTimeString()
   });
+  const [refreshError, setRefreshError] = useState(null);
+  const refreshTimerRef = useRef(null);
+  const refreshIntervalMs = 30000; // Refresh every 30 seconds
 
-  useEffect(() => {
-    if (user) {
-      fetchEvents();
-      checkSystemStatus();
-    }
-  }, [user]);
-
-  const fetchEvents = async () => {
+  // Use useCallback to memoize the fetchEvents function
+  const fetchEvents = useCallback(async () => {
     try {
+      setRefreshError(null);
       // Get the current session to get the access token
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
@@ -51,12 +50,36 @@ function App() {
         event.id ? event : { ...event, id: crypto.randomUUID() }
       );
       
+      console.log(`Fetched ${events.length} events`);
       setEvents(events);
+      return true;
     } catch (error) {
       console.error('Error fetching events:', error);
-      setEvents([]);
+      setRefreshError(`Failed to refresh events: ${error.message}`);
+      return false;
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      // Initial fetch
+      fetchEvents();
+      checkSystemStatus();
+      
+      // Set up periodic refresh
+      refreshTimerRef.current = setInterval(() => {
+        console.log('Periodic refresh of events...');
+        fetchEvents();
+      }, refreshIntervalMs);
+      
+      // Cleanup interval on unmount
+      return () => {
+        if (refreshTimerRef.current) {
+          clearInterval(refreshTimerRef.current);
+        }
+      };
+    }
+  }, [user, fetchEvents]);
 
   const checkSystemStatus = async () => {
     console.log('Checking backend health at:', `${API_BASE_URL}/api/health`);
@@ -136,16 +159,41 @@ function App() {
       else if (action === 'reschedule') {
         // For reschedule, mark original as deleted and add the new one
         setEvents(prev => {
+          // Find the original event by title and originalStart (date part, not exact time)
           const updatedEvents = prev.map(event => {
-            // Find the original event by title and mark it as deleted/rescheduled
-            if (event.title === response.event.title && !event.isDeleted) {
-              return { ...event, isDeleted: true, isRescheduled: true };
+            // Extract just the date parts for comparison
+            const eventDatePart = event.start ? event.start.split('T')[0] : '';
+            const originalDatePart = response.event.originalStart ? response.event.originalStart.split('T')[0] : '';
+            
+            // Convert titles to lowercase for case-insensitive comparison
+            const eventTitleLower = event.title ? event.title.toLowerCase() : '';
+            const originalTitleLower = response.event.title ? response.event.title.toLowerCase() : '';
+            
+            // Check if this event matches the date and has title keyword overlap
+            const dateMatches = eventDatePart === originalDatePart;
+            const titleMatches = eventTitleLower.includes(originalTitleLower) || 
+                                originalTitleLower.includes(eventTitleLower) ||
+                                (eventTitleLower.split(' ').some(word => originalTitleLower.includes(word) && word.length > 3));
+            
+            if (dateMatches && titleMatches && !event.isDeleted) {
+              // Mark original event as deleted/rescheduled
+              return { 
+                ...event, 
+                isDeleted: true, 
+                isRescheduled: true,
+                rescheduled_from: event.id // Use rescheduled_from to match the expected field in calendarEvents
+              };
             }
             return event;
           });
           
-          // Add the rescheduled event
-          return [...updatedEvents, response.event];
+          // Add the rescheduled event with the new times (this will be blue)
+          const newEvent = {
+            ...response.event,
+            id: response.event.id || uuidv4(), // Ensure new event has an ID
+          };
+
+          return [...updatedEvents, newEvent];
         });
       }
     }
@@ -213,54 +261,57 @@ function App() {
     </div>
   );
 
-  // If authentication is still loading, show a loading spinner
   if (authLoading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  // If no user is authenticated, show the Auth component
-  if (!user) {
-    return <Auth onAuthenticated={(user) => console.log('User authenticated:', user)} />;
+    return <div className="loading-container">Loading...</div>;
   }
 
   // User is authenticated, show the app
   return (
-    <div className="app-container">
-      <div className="app-header">
-        <h1>🐱 AI Calendar</h1>
-        <div className="header-actions">
-          <div className="user-profile">
-            <span className="user-email">{user.email}</span>
-            <button className="logout-button" onClick={signOut}>
-              Sign Out
-            </button>
-          </div>
-          <button className="status-button" onClick={() => setShowStatusModal(true)}>
-            👾 System Status
-          </button>
-        </div>
+    <div className="App">
+      <div className="experimental-banner">
+        This is an experimental product. Please do not share any sensitive information.
       </div>
-      <div className="main-content">
-        <div className="left-panel">
-          <div className="upcoming-events-container">
-            <UpcomingEvents events={events} />
+      {!user && !authLoading ? (
+        <Auth />
+      ) : (
+        <div className="main-layout">
+          <header className="app-header">
+            <div className="logo-and-title">
+               <img src="/logo.png" alt="AI Calendar Logo" className="app-logo" /> 
+              <h1>AI Calendar</h1>
+            </div>
+            {user && (
+              <div className="user-info">
+                <span>{user.email}</span>
+                <button onClick={signOut} className="signout-button">Sign Out</button>
+                <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
+              </div>
+            )}
+          </header>
+          {refreshError && (
+            <div className="error-banner">
+              {refreshError}
+              <button onClick={fetchEvents}>Retry</button>
+            </div>
+          )}
+          <div className="main-content">
+            <div className="left-panel">
+              <div className="upcoming-events-container">
+                <UpcomingEvents events={events} />
+              </div>
+            </div>
+            <div className="calendar-container">
+              <Calendar events={events} onEventsChange={handleEventsChange} user={user} />
+            </div>
+            <div className="chat-panel">
+              <div className="chatbot-container">
+                <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
+              </div>
+            </div>
           </div>
+          {showStatusModal && <StatusModal />}
         </div>
-        <div className="calendar-container">
-          <Calendar events={events} onEventsChange={handleEventsChange} user={user} />
-        </div>
-        <div className="chat-panel">
-          <div className="chatbot-container">
-            <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
-          </div>
-        </div>
-      </div>
-      {showStatusModal && <StatusModal />}
+      )}
     </div>
   );
 }

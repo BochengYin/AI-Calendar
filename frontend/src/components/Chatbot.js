@@ -23,11 +23,6 @@ export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
       id: 2,
       text: "Here are some examples of what you can say:\n• \"Schedule a meeting with Mike tomorrow at 2pm\"\n• \"Reschedule my Friday meeting to Monday at 10am\"\n• \"Delete the meeting with Bocheng on Sunday\"\n• \"Cancel my coffee meeting on Friday\"",
       sender: 'bot'
-    },
-    {
-      id: 3,
-      text: "This is an experimental product. Please do not share any sensitive information.",
-      sender: 'system'
     }
   ]);
   const [isLoading, setIsLoading] = useState(false);
