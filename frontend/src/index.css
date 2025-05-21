@@ -129,15 +129,15 @@ body {
 
 /* Main content area */
 .main-layout {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 50px - 40px);
   overflow: hidden;
 }
 
 .main-content {
-  display: flex;
   flex: 1;
+  display: flex;
   overflow: hidden;
   background-color: var(--system-grouped-background);
   padding: 16px;
@@ -1401,4 +1401,46 @@ body {
     font-size: 0.8em;
     padding: 8px;
   }
-} 
+}
+
+/* Ensure .App is the main full-height flex container */
+.App { /* Styles for the root div in App.js */
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden; /* Children will manage their own scroll */
+}
+
+.main-layout {
+  flex: 1; /* This makes .main-layout take remaining vertical space in .App */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Children (header, main-content) will be managed */
+}
+
+.app-header {
+  /* ... existing styles ... */
+  /* height: 40px; Ensure this is set or taken from padding */
+  flex-shrink: 0; /* Important: Prevent header from shrinking */
+}
+
+.main-content {
+  flex: 1; /* This makes .main-content take remaining vertical space in .main-layout */
+  /* ... existing styles like display:flex for row layout of panels, padding, gap ... */
+  overflow: hidden; /* Panels inside will scroll */
+}
+
+/* Panels .left-panel, .calendar-container, .chat-panel should already have height: 100% and overflow-y: auto */
+/* Their flex properties for width distribution should also be fine */
+
+/* Remove or comment out old .app-container if .App is now used and styled */
+/* For example, if .app-container was identical to the new .App style: */
+/* .app-container { */
+/*   display: flex; */
+/*   flex-direction: column; */
+/*   height: 100vh; */
+/*   max-width: 100%; */
+/*   margin: 0 auto; */
+/* } */
+
+/* ... existing code ... */ 

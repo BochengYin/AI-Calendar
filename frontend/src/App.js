@@ -34,24 +34,25 @@ function App() {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
       
-      // Add explicit user_id filter to improve RLS performance
       const response = await axios.get(`${API_BASE_URL}/api/events`, {
         headers: {
           Authorization: accessToken ? `Bearer ${accessToken}` : '',
           'User-Email': user.email
         },
         params: {
-          user_id: user.id // Add explicit filter parameter
+          user_id: user.id
         }
       });
       
-      // Transform events to ensure they all have IDs
-      const events = response.data.map(event => 
-        event.id ? event : { ...event, id: crypto.randomUUID() }
-      );
+      // Transform events to ensure they all have IDs and map is_deleted
+      const fetchedEvents = response.data.map(event => ({
+        ...event,
+        id: event.id || crypto.randomUUID(), // Ensure an ID exists
+        isDeleted: event.is_deleted || false // Map is_deleted to isDeleted
+      }));
       
-      console.log(`Fetched ${events.length} events`);
-      setEvents(events);
+      console.log(`Fetched ${fetchedEvents.length} events, first event:`, fetchedEvents[0]);
+      setEvents(fetchedEvents);
       return true;
     } catch (error) {
       console.error('Error fetching events:', error);
