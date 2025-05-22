@@ -9,6 +9,7 @@ from datetime import datetime
 import time
 import traceback
 import openai
+import random # Added for with_retry
 from supabase_client import get_supabase_client
 
 # Load environment variables first, before imports that might use them
@@ -39,6 +40,42 @@ except ImportError as e:
 logger.info("Environment variables loaded")
 logger.debug(f"OPENAI_API_KEY configured: {'Yes' if os.getenv('OPENAI_API_KEY') else 'No'}")
 logger.debug(f"OPENAI_API_KEY length: {len(os.getenv('OPENAI_API_KEY') or '')}")
+
+# Define with_retry function here
+def with_retry(func, max_retries=3, base_delay=1):
+    """
+    Execute a function with retry logic.
+    
+    Args:
+        func: The function to execute
+        max_retries: Maximum number of retries
+        base_delay: Base delay between retries (will be exponentially increased)
+        
+    Returns:
+        The result of the function call
+    """
+    retries = 0
+    last_exception = None
+    
+    while retries <= max_retries:
+        try:
+            return func()
+        except Exception as e:
+            last_exception = e
+            retries += 1
+            
+            if retries > max_retries:
+                break
+                
+            # Exponential backoff with jitter
+            delay = base_delay * (2 ** (retries - 1)) + random.uniform(0, 0.5)
+            logger.warning(f"Operation failed, retrying in {delay:.2f}s... ({retries}/{max_retries})")
+            logger.warning(f"Error: {str(e)}")
+            time.sleep(delay)
+    
+    # If we've exhausted all retries, raise the last exception
+    logger.error(f"All {max_retries} retries failed for function {func.__name__ if hasattr(func, '__name__') else 'unknown'}")
+    raise last_exception
 
 app = Flask(__name__)
 
@@ -242,9 +279,8 @@ def get_events():
                 return query.execute()
             
             # Use the retry function to make the query more resilient
-            import supabase_client # Import the module
             try:
-                response = supabase_client.with_retry(fetch_events) # Call with_retry via the module
+                response = with_retry(fetch_events) # Call local with_retry
                 
                 if response.data:
                     logger.info(f"Returned {len(response.data)} events from Supabase")

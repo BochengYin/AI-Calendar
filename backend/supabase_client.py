@@ -1,6 +1,8 @@
 import os
 import logging
 import traceback
+import time
+import random
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -44,15 +46,18 @@ def get_supabase_client() -> Client:
         logger.error(error_msg)
         raise Exception(error_msg)
         
-    # Test connection
+    # Test connection - no longer using with_retry here
     try:
         # Attempt a simple query to verify connection
-        logger.debug("Testing Supabase connection...")
+        logger.debug("Testing Supabase connection within get_supabase_client...")
         # Just fetch the count of events as a simple test
-        response = supabase.table('events').select('id', count='exact').execute()
-        logger.info(f"Supabase connection test succeeded: {response.count} events found")
+        def test_connection_direct(): # Renamed to avoid conflict if with_retry was imported
+            return supabase.table('events').select('id', count='exact').limit(1).execute()
+            
+        response = test_connection_direct() # Direct call
+        logger.info(f"Supabase connection test (within get_supabase_client) succeeded: {response.count} events found")
     except Exception as e:
-        logger.error(f"Supabase connection test failed: {str(e)}")
+        logger.error(f"Supabase connection test (within get_supabase_client) failed: {str(e)}")
         logger.error(traceback.format_exc())
         # Still return the client so calling code can handle specific errors
     
