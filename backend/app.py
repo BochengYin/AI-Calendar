@@ -242,9 +242,9 @@ def get_events():
                 return query.execute()
             
             # Use the retry function to make the query more resilient
-            from supabase_client import with_retry
+            import supabase_client # Import the module
             try:
-                response = with_retry(fetch_events)
+                response = supabase_client.with_retry(fetch_events) # Call with_retry via the module
                 
                 if response.data:
                     logger.info(f"Returned {len(response.data)} events from Supabase")
