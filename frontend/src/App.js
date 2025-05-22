@@ -44,14 +44,20 @@ function App() {
         }
       });
       
-      // Transform events to ensure they all have IDs and map is_deleted
+      // Transform events to ensure they all have IDs and map backend field names to frontend field names
       const fetchedEvents = response.data.map(event => ({
         ...event,
         id: event.id || crypto.randomUUID(), // Ensure an ID exists
-        isDeleted: event.is_deleted || false // Map is_deleted to isDeleted
+        isDeleted: event.is_deleted || false, // Map is_deleted to isDeleted
+        isRescheduled: event.is_rescheduled || false, // Map is_rescheduled to isRescheduled
+        // If this event was rescheduled from another, keep the reference
+        rescheduledFrom: event.rescheduled_from || null
       }));
       
-      console.log(`Fetched ${fetchedEvents.length} events, first event:`, fetchedEvents[0]);
+      console.log(`Fetched ${fetchedEvents.length} events`);
+      if (fetchedEvents.length > 0) {
+        console.log(`First event: ${fetchedEvents[0].title}, isDeleted: ${fetchedEvents[0].isDeleted}, isRescheduled: ${fetchedEvents[0].isRescheduled}`);
+      }
       setEvents(fetchedEvents);
       return true;
     } catch (error) {
@@ -158,42 +164,58 @@ function App() {
         });
       }
       else if (action === 'reschedule') {
-        // For reschedule, mark original as deleted and add the new one
+        // For reschedule, we should receive a new event object from the backend that already 
+        // has all the necessary properties, including the rescheduled_from reference
         setEvents(prev => {
-          // Find the original event by title and originalStart (date part, not exact time)
+          // Find and mark the original event as deleted/rescheduled using the new rescheduled_from field
           const updatedEvents = prev.map(event => {
-            // Extract just the date parts for comparison
-            const eventDatePart = event.start ? event.start.split('T')[0] : '';
-            const originalDatePart = response.event.originalStart ? response.event.originalStart.split('T')[0] : '';
-            
-            // Convert titles to lowercase for case-insensitive comparison
-            const eventTitleLower = event.title ? event.title.toLowerCase() : '';
-            const originalTitleLower = response.event.title ? response.event.title.toLowerCase() : '';
-            
-            // Check if this event matches the date and has title keyword overlap
-            const dateMatches = eventDatePart === originalDatePart;
-            const titleMatches = eventTitleLower.includes(originalTitleLower) || 
-                                originalTitleLower.includes(eventTitleLower) ||
-                                (eventTitleLower.split(' ').some(word => originalTitleLower.includes(word) && word.length > 3));
-            
-            if (dateMatches && titleMatches && !event.isDeleted) {
-              // Mark original event as deleted/rescheduled
+            // If this event is the original that was rescheduled, mark it as deleted
+            if (response.event.rescheduled_from === event.id) {
               return { 
                 ...event, 
                 isDeleted: true, 
-                isRescheduled: true,
-                rescheduled_from: event.id // Use rescheduled_from to match the expected field in calendarEvents
+                isRescheduled: true
               };
             }
+            
+            // If that fails, try the old way - fuzzy match by title and date
+            if (!response.event.rescheduled_from) {
+              // Extract just the date parts for comparison
+              const eventDatePart = event.start ? event.start.split('T')[0] : '';
+              const originalDatePart = response.event.originalStart ? response.event.originalStart.split('T')[0] : '';
+              
+              // Convert titles to lowercase for case-insensitive comparison
+              const eventTitleLower = event.title ? event.title.toLowerCase() : '';
+              const originalTitleLower = response.event.title ? response.event.title.toLowerCase() : '';
+              
+              // Check if this event matches the date and has title keyword overlap
+              const dateMatches = eventDatePart === originalDatePart;
+              const titleMatches = eventTitleLower.includes(originalTitleLower) || 
+                                  originalTitleLower.includes(eventTitleLower) ||
+                                  (eventTitleLower.split(' ').some(word => originalTitleLower.includes(word) && word.length > 3));
+              
+              if (dateMatches && titleMatches && !event.isDeleted) {
+                return { 
+                  ...event, 
+                  isDeleted: true, 
+                  isRescheduled: true
+                };
+              }
+            }
+            
             return event;
           });
           
-          // Add the rescheduled event with the new times (this will be blue)
+          // Make sure the received event has all frontend-expected properties
           const newEvent = {
             ...response.event,
             id: response.event.id || uuidv4(), // Ensure new event has an ID
+            isDeleted: response.event.isDeleted || false, // Map backend fields to frontend
+            isRescheduled: false // New event is not rescheduled itself
           };
-
+          
+          console.log("Adding rescheduled event to calendar:", newEvent);
+          
           return [...updatedEvents, newEvent];
         });
       }

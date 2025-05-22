@@ -230,34 +230,80 @@ def get_events():
         supabase = get_supabase_client()
         if supabase:
             logger.info(f"Fetching events from Supabase for user: {user_id}")
-            query = supabase.table('events').select('*')
             
-            # Apply user filtering if needed (RLS should handle this automatically in Supabase)
-            if user_id:
-                query = query.eq('user_id', user_id)
+            # Use retry logic for Supabase query
+            def fetch_events():
+                query = supabase.table('events').select('*')
                 
-            response = query.execute()
+                # Apply user filtering if needed (RLS should handle this automatically in Supabase)
+                if user_id:
+                    query = query.eq('user_id', user_id)
+                    
+                return query.execute()
             
-            if response.data:
-                logger.info(f"Returned {len(response.data)} events from Supabase")
-                return jsonify(response.data)
+            # Use the retry function to make the query more resilient
+            from supabase_client import with_retry
+            try:
+                response = with_retry(fetch_events)
+                
+                if response.data:
+                    logger.info(f"Returned {len(response.data)} events from Supabase")
+                    
+                    # Backup fetched events to local storage to avoid disappearing events
+                    global events
+                    if len(response.data) > 0:
+                        logger.info(f"Updating local events cache with {len(response.data)} events from Supabase")
+                        # Convert from snake_case to camelCase for frontend
+                        local_events = []
+                        for event in response.data:
+                            local_event = {
+                                'id': event.get('id'),
+                                'title': event.get('title'),
+                                'description': event.get('description', ''),
+                                'start': event.get('start'),
+                                'end': event.get('end'),
+                                'allDay': event.get('all_day', False),
+                                'user_id': event.get('user_id'),
+                                'user_email': event.get('user_email')
+                            }
+                            if event.get('is_deleted'):
+                                local_event['isDeleted'] = event.get('is_deleted')
+                            if event.get('is_rescheduled'):
+                                local_event['isRescheduled'] = event.get('is_rescheduled')
+                            local_events.append(local_event)
+                        
+                        # Update the global events list but filter for this user if user_id exists
+                        if user_id:
+                            # Keep events that belong to other users
+                            other_events = [e for e in events if e.get('user_id') and e.get('user_id') != user_id]
+                            # Then add the events for this user
+                            events = other_events + local_events
+                        else:
+                            events = local_events
+                            
+                        # Save to JSON file for backup
+                        with open('events.json', 'w') as f:
+                            json.dump(events, f)
+                            logger.info(f"Saved {len(events)} events to events.json")
+                    
+                    return jsonify(response.data)
+            except Exception as e:
+                logger.error(f"Error with retry fetching events from Supabase: {e}")
+                logger.error(traceback.format_exc())
+                # Continue to fallback mechanism
     except Exception as e:
         logger.error(f"Error fetching events from Supabase: {e}")
         logger.error(traceback.format_exc())
     
     # Fall back to local JSON data if Supabase fails
     logger.info("Falling back to local events data")
+    # Filter for the requested user if needed
     if user_id:
-        logger.info(f"Filtering events for user: {user_id} ({user_email})")
-        # Filter events by user_id if provided
-        filtered_events = [
-            event for event in events 
-            if event.get('user_id') == user_id or not event.get('user_id')
-        ]
-        return jsonify(filtered_events)
+        user_email_str = user_email if user_email else "unknown"
+        logger.info(f"Filtering events for user: {user_id} ({user_email_str})")
+        user_events = [event for event in events if event.get('user_id') == user_id]
+        return jsonify(user_events)
     else:
-        # If no user_id provided, return all events (for admin access)
-        logger.warning("No user_id provided, returning all events")
         return jsonify(events)
 
 @app.route('/api/events', methods=['POST'])
@@ -559,170 +605,351 @@ def update_event(event_id):
 @app.route('/api/chat', methods=['POST'])
 def chat():
     logger.info("POST /api/chat endpoint called")
-    message = request.json.get('message', '')
-    user_id = request.json.get('userId')
-    user_email = request.json.get('userEmail', 'user@example.com')
+    data = request.json
+    user_message = data.get('message')
+    user_id = data.get('userId')  # Get userId from request
+    user_email = data.get('userEmail') # Get userEmail from request
+
+    if not user_message:
+        logger.warning("No message provided in chat request")
+        return jsonify({'message': 'No message provided'}), 400
+
+    logger.info(f"Received chat message from user {user_id} ({user_email}): {user_message}")
     
-    # Extract user_id from JWT token if available and not provided in the request
-    if not user_id:
-        auth_header = request.headers.get('Authorization')
+    # Process the message using ChatGPT API
+    event, response_message = process_event_request(user_message)
+    
+    action = None
+    if event:
+        action = event.get('action')
         
-        if auth_header and auth_header.startswith('Bearer '):
-            # Extract JWT token
-            token = auth_header.split(' ')[1]
+        # Ensure user_id and user_email are in the event object if available
+        if user_id and 'user_id' not in event:
+            event['user_id'] = user_id
+        if user_email and 'user_email' not in event:
+            event['user_email'] = user_email
             
+        logger.info(f"Chat action: {action}, Event details: {event}")
+
+        # --- Handle Supabase Operations ---
+        supabase_success = False
+        supabase = get_supabase_client()
+
+        if supabase:
             try:
-                # Try to decode the JWT token to extract the user ID
-                import base64
-                import json
-                
-                # Get the payload part of the JWT (second part)
-                payload = token.split('.')[1]
-                # Add padding if needed
-                payload += '=' * (4 - len(payload) % 4)
-                # Decode the payload
-                decoded = base64.b64decode(payload)
-                payload_data = json.loads(decoded)
-                
-                # Extract the sub claim which contains the user ID
-                if 'sub' in payload_data:
-                    user_id = payload_data['sub']
-                    logger.info(f"Extracted user_id from JWT: {user_id}")
-                else:
-                    # Fallback to using the token itself
-                    user_id = token
-                    logger.warning(f"Could not extract user_id from JWT, using token as user_id")
-            except Exception as e:
-                # If decoding fails, use the token as the user ID
-                logger.error(f"Error decoding JWT: {e}")
-                user_id = token
-                logger.warning(f"Using token as user_id due to decoding error")
-    
-    # Get user email from headers if not provided in the request
-    if user_email == 'user@example.com':
-        header_email = request.headers.get('User-Email')
-        if header_email:
-            user_email = header_email
-            logger.info(f"Using email from headers: {user_email}")
-    
-    logger.debug(f"Received message: {message}")
-    logger.debug(f"Message from user_id: {user_id}, email: {user_email}")
-    
-    # Process the message using ChatGPT to extract event details
-    try:
-        event, response_message = process_event_request(message)
-        
-        logger.debug(f"ChatGPT response - Event: {event}, Message: {response_message}")
-        
-        if event:
-            action = event.get('action', 'create')
-            logger.debug(f"Action to perform: {action}")
-            
-            if action == 'create':
-                # Validate required fields for create action
-                if not all(k in event for k in ['title', 'start', 'end']):
-                    missing = [k for k in ['title', 'start', 'end'] if k not in event]
-                    logger.warning(f"Event is missing required fields: {missing}")
-                    return jsonify({
-                        'message': f"I couldn't add your event because some required information was missing: {', '.join(missing)}. Please try again with complete details.",
-                        'event': None
-                    })
-                
-                # Generate ID if needed
-                if 'id' not in event:
-                    event['id'] = str(uuid.uuid4())
-                
-                # Set user identification
-                if user_id and 'user_id' not in event:
-                    event['user_id'] = user_id
-                
-                # Ensure user_email is present (add default if missing)
-                if 'user_email' not in event and 'user_id' in event:
-                    # We should already have user_email from the request.json.get('userEmail')
-                    # But double-check it's not empty
-                    if user_email and user_email != 'user@example.com':
-                        event['user_email'] = user_email
-                        logger.info(f"Using provided user_email: {user_email} for event with ID {event.get('id')}")
+                if action == 'create':
+                    logger.info(f"Attempting to create event in Supabase: {event}")
+                    # Ensure all required fields are present for Supabase
+                    required_fields = ['id', 'title', 'start', 'end', 'user_id', 'user_email']
+                    missing_fields = [field for field in required_fields if field not in event or event[field] is None]
+
+                    if missing_fields:
+                        logger.error(f"Supabase create error: Missing required fields: {missing_fields} in event {event}")
+                        response_message = f"I couldn't create the event due to missing details: {', '.join(missing_fields)}. Please try again."
                     else:
-                        event['user_email'] = 'user@example.com'
-                        logger.warning(f"No valid user email found for user_id {event.get('user_id')}, using default")
+                        # Prepare clean event for Supabase
+                        clean_event_create = {
+                            'id': event.get('id'),
+                            'title': event.get('title'),
+                            'description': event.get('description', ''),
+                            'start': event.get('start'),
+                            'end': event.get('end'),
+                            'all_day': event.get('allDay', False),
+                            'user_id': event.get('user_id'),
+                            'user_email': event.get('user_email')
+                        }
+                        db_response = supabase.table('events').insert(clean_event_create).execute()
+                        if db_response.data:
+                            logger.info(f"Successfully created event in Supabase: {db_response.data[0]}")
+                            event = db_response.data[0] # Use the event data returned by Supabase
+                            supabase_success = True
+                        else:
+                            logger.error(f"Supabase create error: No data returned. Response: {db_response}")
+                            response_message = "I tried to create the event, but something went wrong with the database."
                 
-                # Try to save to Supabase first
-                supabase_success = False
-                try:
-                    supabase = get_supabase_client()
-                    if supabase:
-                        # Validate required fields for Supabase schema
-                        required_fields = ['id', 'title', 'start', 'end', 'user_id', 'user_email']
+                elif action == 'delete':
+                    event_title_to_delete = event.get('title')
+                    event_start_to_delete = event.get('start') # This might be a date string
+                    logger.info(f"Attempting to delete event in Supabase: Title='{event_title_to_delete}', Start='{event_start_to_delete}'")
+
+                    if not event_title_to_delete:
+                        logger.warning("Supabase delete error: No title provided for deletion.")
+                        response_message = "Please specify the title of the event to delete."
+                    else:
+                        query = supabase.table('events').delete().eq('user_id', user_id).ilike('title', f"%{event_title_to_delete}%")
                         
-                        # Ensure user_email is present (add default if missing)
-                        if 'user_email' not in event and 'user_id' in event:
-                            # Check if user email is in headers before defaulting
-                            user_email_header = request.headers.get('User-Email')
-                            if user_email_header:
-                                event['user_email'] = user_email_header
-                                logger.info(f"Added user_email from header: {user_email_header} to event with ID {event.get('id')}")
-                            else:
-                                event['user_email'] = 'user@example.com'
-                                logger.warning(f"No user email found for user_id {event.get('user_id')}, using default")
+                        # If start date is provided, try to match it. This is a bit tricky
+                        # as the format from LLM might vary. We'll try a basic date match.
+                        if event_start_to_delete:
+                            try:
+                                # Assuming start is YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
+                                date_str = event_start_to_delete.split('T')[0]
+                                query = query.gte('start', f"{date_str}T00:00:00").lte('start', f"{date_str}T23:59:59")
+                            except Exception as e:
+                                logger.warning(f"Could not parse start date for delete query: {event_start_to_delete} - {e}")
+
+                        db_response = query.execute()
                         
-                        missing_fields = [field for field in required_fields if field not in event]
+                        if db_response.data:
+                            logger.info(f"Successfully deleted event(s) from Supabase: {db_response.data}")
+                            # We don't send the full event back, just confirmation
+                            event = {'id': 'deleted', 'title': event_title_to_delete} # Placeholder for frontend
+                            supabase_success = True
+                        else:
+                            logger.warning(f"Supabase delete: No matching event found or error. Title='{event_title_to_delete}', Start='{event_start_to_delete}'. Response: {db_response}")
+                            response_message = f"I couldn't find an event titled '{event_title_to_delete}' to delete."
+                            if event_start_to_delete:
+                                response_message += f" for {event_start_to_delete}."
+
+                elif action == 'reschedule':
+                    # Get the essential details for identifying the original event and creating the new one
+                    original_title = event.get('title')
+                    original_start = event.get('originalStart')
+                    new_start = event.get('start')
+                    new_end = event.get('end')
+                    description = event.get('description', '')
+                    all_day = event.get('allDay', False)
+                    
+                    logger.info(f"Attempting to reschedule event: Title='{original_title}', Original Start='{original_start}', New Start='{new_start}', New End='{new_end}'")
+                    
+                    # Validate we have enough info to proceed
+                    if not original_title or not original_start or not new_start or not new_end:
+                        missing_fields = []
+                        if not original_title: missing_fields.append('title')
+                        if not original_start: missing_fields.append('originalStart')
+                        if not new_start: missing_fields.append('start')
+                        if not new_end: missing_fields.append('end')
                         
-                        if missing_fields:
-                            error_msg = f"Cannot save to Supabase: Missing required fields: {missing_fields}"
-                            logger.error(error_msg)
-                            # Will fall back to local storage below
-                        else:                      
-                            # Prepare clean event for Supabase
-                            clean_event = {
-                                'id': event.get('id'),
-                                'title': event.get('title'),
-                                'description': event.get('description', ''),
-                                'start': event.get('start'),
-                                'end': event.get('end'),
-                                'all_day': event.get('allDay', False),
-                                'user_id': event.get('user_id'),
-                                'user_email': event.get('user_email')
-                            }
+                        error_msg = f"Cannot reschedule event: Missing required fields: {', '.join(missing_fields)}"
+                        logger.error(error_msg)
+                        response_message = f"I couldn't reschedule your event because some details were missing: {', '.join(missing_fields)}."
+                    else:
+                        try:
+                            # Ensure proper date format for original_start
+                            original_date_part = None
+                            try:
+                                # Normalize the original_start date format
+                                if 'T' in original_start:
+                                    original_date_part = original_start.split('T')[0]
+                                else:
+                                    # If no time part, assume it's just a date
+                                    original_date_part = original_start
+                                    # Add time part if missing
+                                    if len(original_start) == 10:  # YYYY-MM-DD format
+                                        original_start = f"{original_start}T00:00:00"
+                                logger.info(f"Normalized original start date: {original_date_part} from {original_start}")
+                            except Exception as e:
+                                logger.error(f"Error parsing original start date: {original_start} - {e}")
+                                original_date_part = original_start  # Fallback to original value
                             
-                            logger.info(f"Inserting event from chat into Supabase: {clean_event}")
-                            response = supabase.table('events').insert(clean_event).execute()
+                            # Step 1: Find all events on the specified date
+                            logger.info(f"Querying events for user {user_id} on date {original_date_part}")
+                            find_date_query = supabase.table('events').select('*')\
+                                .eq('user_id', user_id)\
+                                .eq('is_deleted', False)  # Only consider non-deleted events
                             
-                            if response.data:
-                                logger.info(f"Successfully saved chat event to Supabase: {response.data}")
-                                supabase_success = True
+                            # Extract just the date part for comparison
+                            if original_date_part:
+                                logger.info(f"Looking for events on date: {original_date_part} or spanning this date")
                                 
-                except Exception as e:
-                    logger.error(f"Error saving chat event to Supabase: {e}")
-                    logger.error(traceback.format_exc())
-                
-                # Add to local storage as well
-                logger.info("Adding chat event to local storage")
-                events.append(event)
-                save_events()  # This now only updates the JSON file if Supabase failed
-                
-                return jsonify({
-                    'message': response_message,
-                    'event': event,
-                    'action': action,
-                    'storage': 'dual' if supabase_success else 'local_only'
-                })
+                                # Modified query: Events that either start on the target date OR span the target date
+                                try:
+                                    # Try to use the date part in a query
+                                    find_date_query = find_date_query\
+                                        .lte('start', f"{original_date_part}T23:59:59")\
+                                        .gte('end', f"{original_date_part}T00:00:00")
+                                except Exception as e:
+                                    logger.error(f"Error in date query construction: {e}")
+                                    # Fallback to simpler query if date format issues
+                                    find_date_query = find_date_query.ilike('start', f"%{original_date_part}%")
+                            
+                            # Get all events on that date
+                            try:
+                                date_events_response = find_date_query.execute()
+                                date_events = date_events_response.data
+                                logger.info(f"Query executed successfully, found {len(date_events) if date_events else 0} events")
+                            except Exception as e:
+                                logger.error(f"Error executing Supabase query: {e}")
+                                logger.error(traceback.format_exc())
+                                date_events = []
+                            
+                            # Log all events found on this date
+                            logger.info(f"Events found on or spanning date {original_date_part}: {len(date_events) if date_events else 0}")
+                            for idx, ev in enumerate(date_events or []):
+                                logger.info(f"  Event {idx+1}: Title='{ev.get('title')}', Start='{ev.get('start')}', End='{ev.get('end')}', ID='{ev.get('id')}'")
+                            
+                            # If we found events on that date, try fuzzy matching on title
+                            found_event = None
+                            if date_events and len(date_events) > 0:
+                                # Extract keywords from the requested title
+                                title_keywords = original_title.lower().split()
+                                logger.info(f"Searching for title keywords: {title_keywords}")
+                                
+                                # Find the best matching event
+                                best_match = None
+                                best_match_score = 0
+                                
+                                for ev in date_events:
+                                    if ev.get('title'):
+                                        event_title = ev.get('title').lower()
+                                        
+                                        # Count matching keywords
+                                        match_score = 0
+                                        matched_keywords = []
+                                        for keyword in title_keywords:
+                                            if keyword in event_title:
+                                                match_score += 1
+                                                matched_keywords.append(keyword)
+                                        
+                                        logger.info(f"  Event '{ev.get('title')}' match score: {match_score}/{len(title_keywords)}, matched keywords: {matched_keywords}")
+                                        
+                                        # If we found a better match, save it
+                                        if match_score > best_match_score:
+                                            best_match_score = match_score
+                                            best_match = ev
+                                            logger.info(f"  New best match: '{ev.get('title')}' with score {match_score}/{len(title_keywords)}")
+                                
+                                # If we found a match with at least one keyword, use it
+                                if best_match and best_match_score > 0:
+                                    found_event = best_match
+                                    logger.info(f"Best match found: '{best_match.get('title')}' with score {best_match_score}/{len(title_keywords)}")
+                                else:
+                                    logger.warning(f"No matching event found for title keywords: {title_keywords}")
+                            
+                            if found_event:
+                                # Use the exact title from the found event
+                                original_title = found_event.get('title')
+                                logger.info(f"Using original event title: '{original_title}'")
+                                
+                                # Generate new event ID first
+                                new_event_id = str(uuid.uuid4())
+                                
+                                # Step 2: Mark the original event as rescheduled
+                                # Update the original event
+                                original_id = found_event.get('id')
+                                
+                                # Validate original_id exists before trying to update
+                                if not original_id:
+                                    logger.error("Found event has no ID, cannot mark as rescheduled")
+                                    raise ValueError("Found event has no ID")
+                                
+                                try:
+                                    update_query = supabase.table('events').update({
+                                        'is_deleted': True,
+                                        'is_rescheduled': True
+                                    }).eq('id', original_id).execute()
+                                    
+                                    logger.info(f"Updated original event (ID: {original_id}) as deleted and rescheduled: {update_query.data}")
+                                    
+                                    # Verify update success
+                                    if not update_query.data:
+                                        logger.warning(f"No data returned from update query for event ID {original_id}")
+                                except Exception as e:
+                                    logger.error(f"Error updating original event: {e}")
+                                    logger.error(traceback.format_exc())
+                                    raise Exception(f"Failed to update original event: {e}")
+                                
+                                # Step 3: Create the new event with the original event's title
+                                if original_title:
+                                    # Prepare the new event object
+                                    new_event = {
+                                        'id': new_event_id,
+                                        'title': original_title,
+                                        'description': description or found_event.get('description', ''),
+                                        'start': new_start,
+                                        'end': new_end,
+                                        'all_day': all_day,
+                                        'user_id': user_id,
+                                        'user_email': user_email,
+                                        'rescheduled_from': original_id,
+                                        'is_deleted': False,
+                                        'is_rescheduled': False
+                                    }
+                                    
+                                    logger.info(f"Created new rescheduled event object: {new_event}")
+                                    
+                                    try:
+                                        insert_response = supabase.table('events').insert(new_event).execute()
+                                        
+                                        # Verify insert success
+                                        if insert_response.data and len(insert_response.data) > 0:
+                                            logger.info(f"Successfully inserted new event: {insert_response.data[0]}")
+                                        else:
+                                            logger.warning("No data returned from insert query")
+                                            raise Exception("Insert failed - no data returned")
+                                    except Exception as e:
+                                        logger.error(f"Error inserting new event: {e}")
+                                        logger.error(traceback.format_exc())
+                                        raise Exception(f"Failed to insert new event: {e}")
+                                    
+                                    # Format dates for user message
+                                    try:
+                                        original_date_formatted = original_date_part
+                                        new_date_formatted = new_start.split('T')[0] if 'T' in new_start else new_start
+                                        
+                                        # Add success message
+                                        response_message = f"Successfully rescheduled '{original_title}' from {original_date_formatted} to {new_date_formatted}"
+                                        supabase_success = True
+                                        
+                                        # Update the event returned to frontend
+                                        event.update({
+                                            'id': new_event_id,
+                                            'title': original_title,
+                                            'start': new_start,
+                                            'end': new_end,
+                                            'isDeleted': False,
+                                            'isRescheduled': False
+                                        })
+                                        logger.info(f"Updated response event with ID {new_event_id} and title '{original_title}'")
+                                    except Exception as e:
+                                        logger.error(f"Error formatting success message: {e}")
+                                        response_message = "Event was rescheduled successfully."
+                                else:
+                                    # We shouldn't get here, but just in case
+                                    logger.error("Original title is missing after finding event")
+                                    response_message = "There was an issue rescheduling the event (missing title)."
+                            else:
+                                # No matching event found
+                                logger.warning(f"No matching event found on date {original_date_part} for title '{original_title}'")
+                                response_message = f"I couldn't find any event matching '{original_title}' on {original_date_part}. Please try again with more specific details."
+                        except Exception as e:
+                            logger.error(f"Error rescheduling event: {e}")
+                            logger.error(traceback.format_exc())
+                            response_message = f"Sorry, there was an error rescheduling the event: {str(e)}"
             
-            return jsonify({
-                'message': response_message,
-                'event': event,
-                'action': action
-            })
+            except openai.APIError as e: # Catch OpenAI specific API errors
+                logger.error(f"OpenAI API error during Supabase operation: {e}")
+                response_message = f"There was an issue with the AI service while updating the calendar: {e}"
+            except Exception as e:
+                logger.error(f"Error during Supabase operation ({action}): {e}")
+                logger.error(traceback.format_exc())
+                response_message = f"I encountered a database error while trying to {action} the event."
         
-        logger.info("No event extracted from the message")
-        return jsonify({
-            'message': response_message
-        })
-    except Exception as e:
-        logger.error(f"Error in chat endpoint: {str(e)}", exc_info=True)
-        return jsonify({
-            'message': f"Sorry, an error occurred: {str(e)}"
-        }), 500
+        else: # No Supabase client
+            logger.warning("Supabase client not available. Chat actions will not persist to database.")
+            response_message += " (Note: Database not connected, changes are temporary)"
+
+        # Fallback to local storage if Supabase failed or not configured
+        # OR always update local cache for responsiveness?
+        # For now, only if Supabase failed for create/update. Delete is tricky locally.
+        if not supabase_success and action in ['create', 'reschedule_update_part']: # 'reschedule_update_part' isn't a real action type here
+             logger.info(f"Action '{action}' failed in Supabase or Supabase not configured. Updating local 'events' list.")
+             if action == 'create' and event not in events: # Basic check
+                 events.append(event)
+             # How to handle reschedule locally is more complex, depends on how frontend uses the response.
+             # The current frontend logic for reschedule *replaces* based on originalId.
+             save_events() # Save to local JSON
+
+
+    # Prepare the final response for the frontend
+    final_response = {'message': response_message}
+    if event:
+        # Ensure the event in the response has the action field for the frontend
+        event['action'] = action 
+        final_response['event'] = event
+        
+    logger.info(f"Returning chat response to frontend: {final_response}")
+    return jsonify(final_response)
 
 @app.route('/api/test-supabase', methods=['GET'])
 def test_supabase():

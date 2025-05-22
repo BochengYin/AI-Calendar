@@ -40,7 +40,8 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     allDay: event.allDay || false,
     resource: event,
     isDeleted: event.isDeleted || false,
-    isRescheduled: !!event.rescheduled_from
+    isRescheduled: event.isRescheduled || false,
+    rescheduledFrom: event.rescheduledFrom || null
   }));
 
   const handleSelectEvent = (event) => {
@@ -267,7 +268,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Custom event component with tooltip
   const EventComponent = ({ event }) => (
-    <div className={`calendar-event-wrapper ${event.isDeleted ? 'event-deleted' : ''} ${event.isRescheduled ? 'event-rescheduled' : ''}`}>
+    <div className={`calendar-event-wrapper ${event.isDeleted || event.isRescheduled ? 'event-deleted' : ''}`}>
       <div className="calendar-event">
         {event.title}
       </div>
@@ -279,7 +280,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
         {event.resource.description && (
           <div className="tooltip-description">{event.resource.description}</div>
         )}
-        {event.isDeleted && (
+        {event.isDeleted && !event.isRescheduled && (
           <div className="tooltip-status deleted">Deleted</div>
         )}
         {event.isRescheduled && (
@@ -292,7 +293,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
   // Style getter for events
   const eventStyleGetter = (event) => {
     let style = {
-      backgroundColor: '#007aff',
+      backgroundColor: '#007aff',  // Blue for normal/new events
       borderRadius: '5px',
       color: 'white',
       border: 'none',
@@ -302,15 +303,13 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     
     let className = '';
     
-    if (event.isDeleted) {
-      className = 'event-deleted';
-      style.backgroundColor = '#ccc';
-      style.color = '#666';
-    } else if (event.isRescheduled) {
-      className = 'event-rescheduled';
-      style.backgroundColor = '#f0d98b';
+    // Apply yellow with strikethrough to deleted or rescheduled events
+    if (event.isDeleted || event.isRescheduled) {
+      className = event.isDeleted ? 'event-deleted' : 'event-rescheduled';
+      style.backgroundColor = '#f0d98b';  // Yellow color
       style.color = '#896c1d';
     }
+    // New events (without isDeleted or isRescheduled flag) remain blue (default style)
     
     return {
       style,
