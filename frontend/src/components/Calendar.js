@@ -339,22 +339,24 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
   return (
     <div className="calendar-view">
       <h2 className="text-center mb-4">AI Calendar</h2>
-      <BigCalendar
-        key={calendarKey}
-        localizer={localizer}
-        events={calendarEvents}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height: 'calc(100vh - 140px)' }}
-        components={{
-          event: EventComponent
-        }}
-        eventPropGetter={eventStyleGetter}
-        onSelectEvent={handleSelectEvent}
-        onSelectSlot={handleSelectSlot}
-        selectable={true}
-        popup
-      />
+      <div className="calendar-scroll-container">
+        <BigCalendar
+          key={calendarKey}
+          localizer={localizer}
+          events={calendarEvents}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height: '800px', minHeight: '600px' }}
+          components={{
+            event: EventComponent
+          }}
+          eventPropGetter={eventStyleGetter}
+          onSelectEvent={handleSelectEvent}
+          onSelectSlot={handleSelectSlot}
+          selectable={true}
+          popup
+        />
+      </div>
       
       {selectedEvent && (
         <div className="event-detail-overlay" onClick={closeEventDetails}>
