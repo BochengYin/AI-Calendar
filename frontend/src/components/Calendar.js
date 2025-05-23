@@ -286,7 +286,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Custom event component with tooltip
   const EventComponent = ({ event }) => (
-    <div className={`calendar-event-wrapper ${event.isDeleted || event.rescheduledFrom ? 'event-deleted' : ''}`}>
+    <div className={`calendar-event-wrapper ${event.isDeleted ? 'event-deleted' : ''}`}>
       <div className="calendar-event">
         {event.title}
       </div>
@@ -298,10 +298,10 @@ export const Calendar = ({ events, onEventsChange, user }) => {
         {event.resource.description && (
           <div className="tooltip-description">{event.resource.description}</div>
         )}
-        {event.isDeleted && !event.rescheduledFrom && (
+        {event.isDeleted && (
           <div className="tooltip-status deleted">Deleted</div>
         )}
-        {event.rescheduledFrom && (
+        {event.rescheduledFrom && !event.isDeleted && (
           <div className="tooltip-status rescheduled">Rescheduled</div>
         )}
       </div>
@@ -312,13 +312,13 @@ export const Calendar = ({ events, onEventsChange, user }) => {
   const eventStyleGetter = (event, start, end, isSelected) => {
     console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
     let style = {
-      backgroundColor: event.isDeleted ? '#fffbe6' : (event.rescheduledFrom ? '#e6f7ff' : '#007aff'),
+      backgroundColor: event.isDeleted ? '#fffbe6' : '#007aff',
       borderRadius: '5px',
-      opacity: event.isDeleted || event.rescheduledFrom ? 0.7 : 1,
-      color: event.isDeleted || event.rescheduledFrom ? '#8c8c8c' : 'white',
+      opacity: event.isDeleted ? 0.7 : 1,
+      color: event.isDeleted ? '#8c8c8c' : 'white',
       border: '0px',
       display: 'block',
-      textDecoration: event.isDeleted || event.rescheduledFrom ? 'line-through' : 'none'
+      textDecoration: event.isDeleted ? 'line-through' : 'none'
     };
     return {
       style: style
