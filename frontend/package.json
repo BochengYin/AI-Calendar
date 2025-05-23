@@ -41,6 +41,12 @@
   "jest": {
     "transformIgnorePatterns": [
       "node_modules/(?!axios/.*|other-es-module-package-name/.*)"
-    ]
+    ],
+    "moduleNameMapper": {
+      "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+    }
+  },
+  "devDependencies": {
+    "identity-obj-proxy": "^3.0.0"
   }
 }
