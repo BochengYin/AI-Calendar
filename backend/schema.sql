@@ -40,10 +40,22 @@ EXECUTE FUNCTION update_updated_at_column();
 
 -- Create a view for upcoming events (not deleted)
 CREATE OR REPLACE VIEW upcoming_events AS
-SELECT *
+SELECT 
+    id,
+    title,
+    start,
+    "end",
+    all_day,
+    description,
+    user_id,
+    user_email,
+    is_deleted,
+    rescheduled_from,
+    created_at,
+    updated_at
 FROM events
 WHERE is_deleted = false
-AND end > now()
+AND "end" > now()
 ORDER BY start ASC;
 
 -- Grant access to authenticated users
