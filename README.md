@@ -7,7 +7,8 @@ An intelligent calendar application that uses AI to manage your events through n
 - 🗣️ Natural language event creation
 - 📅 Interactive calendar view
 - 🔄 Event rescheduling
-- 🗑️ Event deletion
+- 🗑️ Event deletion (soft-delete with cleanup)
+- 📝 Optional event description field
 - 🐱 Clean, minimal UI with Apple-inspired design
 
 ## Tech Stack
@@ -60,10 +61,17 @@ See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions on setting 
    ```
 
 5. Start the backend server:
+   ```bash
+   # Default port is 12345 (matches frontend fallback and start-servers.sh)
+   PORT=12345 python app.py
    ```
-   python app.py
+   The server will run on http://localhost:12345
+
+👉 Alternatively you can start both servers with the helper script at the repo root:
+   ```bash
+   ./start-servers.sh
    ```
-   The server will run on http://localhost:8000
+   This spins up the backend on :12345 and the React dev server on :3000 in parallel.
 
 ### Frontend Setup
 1. Navigate to the frontend directory:
@@ -78,7 +86,7 @@ See [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for detailed instructions on setting 
 
 3. Create a `.env.development` file with your Supabase credentials:
    ```
-   REACT_APP_API_URL=http://localhost:8000
+   REACT_APP_API_URL=http://localhost:12345
    REACT_APP_SUPABASE_URL=your_supabase_url
    REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```

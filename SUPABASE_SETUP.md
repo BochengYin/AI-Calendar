@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS events (
   start TIMESTAMPTZ NOT NULL,
   "end" TIMESTAMPTZ NOT NULL,
   all_day BOOLEAN DEFAULT false,
+  description TEXT,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   user_email TEXT NOT NULL,
   is_deleted BOOLEAN DEFAULT false,
@@ -78,12 +79,36 @@ CREATE TABLE IF NOT EXISTS events (
 -- Enable Row Level Security
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
 
--- Create policy to restrict access to events by user_id
--- Users can only see their own events
-CREATE POLICY events_user_policy 
-ON events
-FOR ALL
-USING (auth.uid() = user_id);
+-- Users can SELECT their own rows
+CREATE POLICY events_select_policy
+  ON events FOR SELECT TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+-- Users can INSERT rows for themselves
+CREATE POLICY events_insert_policy
+  ON events FOR INSERT TO authenticated
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+-- Users can UPDATE their own rows
+CREATE POLICY events_update_policy
+  ON events FOR UPDATE TO authenticated
+  USING ((SELECT auth.uid()) = user_id)
+  WITH CHECK ((SELECT auth.uid()) = user_id);
+
+-- Users can DELETE their own rows (soft-delete is preferred)
+CREATE POLICY events_delete_policy
+  ON events FOR DELETE TO authenticated
+  USING ((SELECT auth.uid()) = user_id);
+
+-- Drop and recreate upcoming_events without SECURITY DEFINER
+DROP VIEW IF EXISTS public.upcoming_events;
+CREATE VIEW public.upcoming_events AS
+SELECT id, title, start, "end", all_day, description,
+       user_id, user_email, is_deleted, is_rescheduled,
+       rescheduled_from, created_at, updated_at
+FROM events
+WHERE is_deleted = false AND "end" > now()
+ORDER BY start;
 
 -- Function to update the updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -94,23 +119,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger to update updated_at timestamp on row update
+DROP TRIGGER IF EXISTS update_events_updated_at ON events;
 CREATE TRIGGER update_events_updated_at
 BEFORE UPDATE ON events
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
--- Create a view for upcoming events (not deleted)
-CREATE OR REPLACE VIEW upcoming_events AS
-SELECT *
-FROM events
-WHERE is_deleted = false
-AND end > now()
-ORDER BY start ASC;
-
--- Grant access to authenticated users
+-- Grant privileges to the Authenticated role
 GRANT SELECT, INSERT, UPDATE, DELETE ON events TO authenticated;
-GRANT SELECT ON upcoming_events TO authenticated;
+GRANT SELECT ON public.upcoming_events TO authenticated;
 ```
 
 Note: Make sure to use double quotes around the "end" column name as it's a reserved word in SQL.
