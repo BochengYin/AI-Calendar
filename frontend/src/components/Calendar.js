@@ -30,6 +30,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     description: '',
     allDay: false
   });
+  const [forceRefresh, setForceRefresh] = useState(0);
   
   // Convert the events to the format expected by react-big-calendar
   const calendarEvents = events.map(event => ({
@@ -45,8 +46,8 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Create a key that changes when events change to force BigCalendar re-render
   const calendarKey = useMemo(() => {
-    return events.map(e => `${e.id}-${e.isDeleted}-${e.rescheduledFrom ? 'reschedule' : 'normal'}`).join(',');
-  }, [events]);
+    return `${forceRefresh}-${events.map(e => `${e.id}-${e.isDeleted}-${e.rescheduledFrom ? 'reschedule' : 'normal'}`).join(',')}`;
+  }, [events, forceRefresh]);
 
   const handleSelectEvent = (event) => {
     setSelectedEvent(event.resource);
@@ -136,6 +137,9 @@ export const Calendar = ({ events, onEventsChange, user }) => {
           onEventsChange(updatedEvents);
         }
         
+        // Force calendar re-render for consistency
+        setForceRefresh(prev => prev + 1);
+        
         // Close the form
         closeNewEventForm();
       } else {
@@ -191,6 +195,9 @@ export const Calendar = ({ events, onEventsChange, user }) => {
         if (onEventsChange) {
           onEventsChange(updatedEvents);
         }
+        
+        // Force calendar re-render to immediately show styling changes
+        setForceRefresh(prev => prev + 1);
         
         closeEventDetails();
       } else {
@@ -273,6 +280,9 @@ export const Calendar = ({ events, onEventsChange, user }) => {
           onEventsChange(updatedEvents);
         }
         
+        // Force calendar re-render to immediately show styling changes
+        setForceRefresh(prev => prev + 1);
+        
         // Close the modal
         closeEventDetails();
       } else {
@@ -312,13 +322,14 @@ export const Calendar = ({ events, onEventsChange, user }) => {
   const eventStyleGetter = (event, start, end, isSelected) => {
     console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
     let style = {
-      backgroundColor: event.isDeleted ? '#fffbe6' : '#007aff',
+      backgroundColor: event.isDeleted ? '#fff3cd' : '#007aff', // More distinct yellow for deleted events
       borderRadius: '5px',
-      opacity: event.isDeleted ? 0.7 : 1,
-      color: event.isDeleted ? '#8c8c8c' : 'white',
-      border: '0px',
+      opacity: event.isDeleted ? 0.8 : 1,
+      color: event.isDeleted ? '#856404' : 'white', // Darker text for better contrast on yellow
+      border: event.isDeleted ? '1px solid #ffeaa7' : '0px',
       display: 'block',
-      textDecoration: event.isDeleted ? 'line-through' : 'none'
+      textDecoration: event.isDeleted ? 'line-through' : 'none',
+      fontWeight: event.isDeleted ? 'normal' : 'bold'
     };
     return {
       style: style
