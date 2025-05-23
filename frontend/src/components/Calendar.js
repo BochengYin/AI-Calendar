@@ -306,6 +306,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Style getter for events
   const eventStyleGetter = (event, start, end, isSelected) => {
+    console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, isRescheduled: ${event.isRescheduled}`);
     let style = {
       backgroundColor: event.isDeleted ? '#fffbe6' : (event.isRescheduled ? '#e6f7ff' : '#007aff'),
       borderRadius: '5px',
@@ -325,7 +326,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
       <h2 className="text-center mb-4">AI Calendar</h2>
       <BigCalendar
         localizer={localizer}
-        events={calendarEvents.filter(event => !(event.isDeleted && event.isRescheduled))}
+        events={calendarEvents}
         startAccessor="start"
         endAccessor="end"
         style={{ height: 'calc(100vh - 140px)' }}

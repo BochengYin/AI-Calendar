@@ -174,11 +174,14 @@ function App() {
       else if (action === 'reschedule') {
         // For reschedule, we should receive a new event object from the backend that already 
         // has all the necessary properties, including the rescheduled_from reference
+        console.log('[Chat Reschedule Action] Received event for reschedule:', response.event);
         setEvents(prev => {
-          // Find and mark the original event as deleted/rescheduled using the new rescheduled_from field
+          // Find and mark the original event as deleted/rescheduled
           const updatedEvents = prev.map(event => {
+            console.log(`[Chat Reschedule Action] Checking event (for original): ${event.title}, ID: ${event.id}, isDeleted: ${event.isDeleted}, isRescheduled: ${event.isRescheduled}`);
             // If this event is the original that was rescheduled, mark it as deleted
-            if (response.event.rescheduled_from === event.id) {
+            if (response.event.rescheduled_from && response.event.rescheduled_from === event.id) { // CONDITION 1
+              console.log(`[Chat Reschedule Action] MATCHED original event by ID: ${event.title}, ID: ${event.id}. Setting isDeleted=true, isRescheduled=true`);
               return { 
                 ...event, 
                 isDeleted: true, 
@@ -187,22 +190,25 @@ function App() {
             }
             
             // If that fails, try the old way - fuzzy match by title and date
-            if (!response.event.rescheduled_from) {
-              // Extract just the date parts for comparison
+            if (!response.event.rescheduled_from) { // CONDITION 2 (Fallback)
+              console.log('[Chat Reschedule Action] No rescheduled_from ID. Attempting fallback match for original.');
               const eventDatePart = event.start ? event.start.split('T')[0] : '';
               const originalDatePart = response.event.originalStart ? response.event.originalStart.split('T')[0] : '';
-              
-              // Convert titles to lowercase for case-insensitive comparison
               const eventTitleLower = event.title ? event.title.toLowerCase() : '';
-              const originalTitleLower = response.event.title ? response.event.title.toLowerCase() : '';
+              // IMPORTANT: originalTitleLower should ideally come from the *original* event's title if known by chat API
+              // For now, it uses the new event's title from response.event.title for matching, which might be problematic.
+              const newEventTitleLower = response.event.title ? response.event.title.toLowerCase() : ''; 
               
-              // Check if this event matches the date and has title keyword overlap
               const dateMatches = eventDatePart === originalDatePart;
-              const titleMatches = eventTitleLower.includes(originalTitleLower) || 
-                                  originalTitleLower.includes(eventTitleLower) ||
-                                  (eventTitleLower.split(' ').some(word => originalTitleLower.includes(word) && word.length > 3));
+              const titleMatches = eventTitleLower.includes(newEventTitleLower) || 
+                                  newEventTitleLower.includes(eventTitleLower) ||
+                                  (eventTitleLower.split(' ').some(word => newEventTitleLower.includes(word) && word.length > 3));
               
+              console.log(`[Chat Reschedule Action] Fallback matching criteria for ${event.title}:`, 
+                { eventDatePart, originalDatePart, eventTitleLower, newEventTitleLower, dateMatches, titleMatches });
+
               if (dateMatches && titleMatches && !event.isDeleted) {
+                console.log(`[Chat Reschedule Action] MATCHED original event by fallback: ${event.title}, ID: ${event.id}. Setting isDeleted=true, isRescheduled=true`);
                 return { 
                   ...event, 
                   isDeleted: true, 
@@ -222,9 +228,9 @@ function App() {
             isRescheduled: false // New event is not rescheduled itself
           };
           
-          console.log("Adding rescheduled event to calendar:", newEvent);
+          console.log("[Chat Reschedule Action] Adding new/rescheduled event to calendar:", newEvent);
           
-          return [...updatedEvents, newEvent];
+          return [...updatedEvents.filter(ev => ev.id !== newEvent.id), newEvent]; // Ensure new event replaces any existing one with same ID, then add
         });
       }
     }
