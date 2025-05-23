@@ -62,69 +62,96 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  padding: 12px 20px;
   background-color: var(--system-background);
   border-bottom: 1px solid var(--system-separator);
   box-shadow: var(--shadow-sm);
   position: relative;
   z-index: 10;
-  height: 40px;
+  height: 44px;
   flex-shrink: 0;
+  backdrop-filter: blur(10px);
 }
 
 .app-header h1 {
   margin: 0;
-  font-family: 'SF Pro Display', sans-serif;
-  font-weight: 500;
-  font-size: 1.5rem;
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  font-size: 1.375rem;
   color: var(--system-label);
+  letter-spacing: -0.02em;
 }
 
 .header-actions {
   display: flex;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
 }
 
-.status-button {
-  padding: 8px 16px;
-  background-color: var(--system-background);
-  color: var(--apple-blue);
-  border: 1px solid var(--system-separator);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
+/* User info section - Apple style */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background-color: var(--apple-gray6);
+  border-radius: 12px;
   transition: all var(--transition-fast);
 }
 
-.status-button:hover {
-  background-color: var(--apple-gray6);
-}
-
-.status-button:active {
-  transform: scale(0.98);
-}
-
-.signout-button,
-.system-status-button {
+.user-info:hover {
   background-color: var(--apple-gray5);
-  color: var(--apple-blue);
+}
+
+.user-email {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--system-secondary-label);
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* System status and sign out buttons - Apple style */
+.system-status-button,
+.signout-button {
+  background-color: var(--apple-gray6);
+  color: var(--system-label);
   border: none;
-  padding: 8px 12px;
+  padding: 8px 16px;
   border-radius: 8px;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  white-space: nowrap;
 }
 
-.signout-button:hover,
-.system-status-button:hover {
-  background-color: var(--apple-gray4);
+.system-status-button:hover,
+.signout-button:hover {
+  background-color: var(--apple-gray5);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.system-status-button:active,
+.signout-button:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .signout-button {
-  margin-left: 10px;
+  background-color: rgba(255, 59, 48, 0.1);
+  color: var(--apple-red);
+  margin-left: 0;
+}
+
+.signout-button:hover {
+  background-color: rgba(255, 59, 48, 0.15);
+  color: var(--apple-red);
 }
 
 /* Main content area */
@@ -1415,24 +1442,6 @@ body {
 }
 
 /* Add CSS for the new refresh button */
-.refresh-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--apple-blue);
-  color: white;
-  border: none;
-  border-radius: 5px;
-  padding: 8px 15px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  margin-left: 10px;
-}
-
-.refresh-button:hover {
-  background-color: #0058b7;
-}
 
 /* Add CSS for the error banner */
 .error-banner {
@@ -1527,44 +1536,6 @@ body {
 .upcoming-event-card.deleted-event {
   background-color: #fffbe6; /* Light yellow, similar to warning or notes */
   opacity: 0.7;
-}
-
-/* User info and header buttons */
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.refresh-button {
-  background: none;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-
-.refresh-button:hover {
-  background-color: #f0f0f0;
-  border-color: #999;
-}
-
-.signout-button, .system-status-button {
-  background-color: var(--apple-gray5);
-  color: var(--apple-blue);
-  border: none;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.signout-button:hover, .system-status-button:hover {
-  background-color: var(--apple-gray4);
 }
 
 /* Calendar toolbar - Apple style */

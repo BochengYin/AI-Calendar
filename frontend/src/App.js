@@ -343,9 +343,6 @@ function App() {
             {user && (
               <div className="user-info">
                 <span>{user.email}</span>
-                <button onClick={fetchEvents} className="refresh-button" title="Refresh from database">
-                  🔄
-                </button>
                 <button onClick={signOut} className="signout-button">Sign Out</button>
                 <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
               </div>
