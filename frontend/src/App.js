@@ -15,6 +15,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
   const [events, setEvents] = useState([]);
+  const [forceCalendarRefresh, setForceCalendarRefresh] = useState(0);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusInfo, setStatusInfo] = useState({
     backendStatus: 'Checking...',
@@ -24,7 +25,7 @@ function App() {
   });
   const [refreshError, setRefreshError] = useState(null);
   const refreshTimerRef = useRef(null);
-  const refreshIntervalMs = 30000; // Refresh every 30 seconds
+  const refreshIntervalMs = 10000; // Refresh every 10 seconds (reduced from 30)
 
   // Use useCallback to memoize the fetchEvents function
   const fetchEvents = useCallback(async () => {
@@ -135,93 +136,127 @@ function App() {
   };
 
   const handleChatResponse = (response) => {
+    console.log('[App.js handleChatResponse] Received response:', response);
+    
     if (response.event) {
       const action = response.action || 'create';
+      console.log('[App.js handleChatResponse] Action:', action, 'Event:', response.event);
       
       if (action === 'create') {
         // Add new event
+        console.log('[App.js handleChatResponse] Adding new event');
         setEvents(prev => [...prev, response.event]);
+        // Force immediate calendar refresh
+        setForceCalendarRefresh(prev => prev + 1);
       } 
       else if (action === 'delete') {
         // For delete action, immediately mark the matching events as deleted
+        console.log('[App.js handleChatResponse] Processing delete action');
         setEvents(prev => {
           const { title, start } = response.event;
-          console.log('[Chat Delete Action] Event to delete (from chat response):', title, start);
+          console.log('[App.js handleChatResponse] Delete - Looking for event with title:', title, 'start:', start);
+          
           const titleLower = title?.toLowerCase();
           const startDate = start?.split('T')[0]; // Get just the date part
           
-          return prev.map(event => {
-            console.log('[Chat Delete Action] Checking event:', event.title, event.start, event.id);
-            // Mark as deleted if:
-            // 1. Title matches and it's on the same date, or
-            // 2. It's on the same date and it's a "meeting" type event
+          const updatedEvents = prev.map(event => {
+            console.log('[App.js handleChatResponse] Delete - Checking event:', event.title, 'start:', event.start, 'id:', event.id);
+            
+            // Multiple matching strategies for better reliability
             const eventDate = event.start?.split('T')[0];
             const isEventOnSameDate = startDate && eventDate === startDate;
             const hasTitleMatch = titleLower && event.title?.toLowerCase().includes(titleLower);
             const isMeetingType = event.title?.toLowerCase().includes('meeting');
+            const isExactTitleMatch = titleLower && event.title?.toLowerCase() === titleLower;
             
-            let markedForDeletion = false;
-            if ((isEventOnSameDate && (hasTitleMatch || (titleLower === 'meeting' && isMeetingType)))) {
-              console.log('[Chat Delete Action] MATCHED event for deletion:', event.title, event.id);
-              markedForDeletion = true;
+            // Exact ID match (most reliable)
+            if (response.event.id && event.id === response.event.id) {
+              console.log('[App.js handleChatResponse] Delete - EXACT ID MATCH, marking as deleted:', event.id);
               return { ...event, isDeleted: true };
             }
-            if (!markedForDeletion) {
-              console.log('[Chat Delete Action] No match for event:', event.title, event.id, {isEventOnSameDate, hasTitleMatch, isMeetingType, titleLower, startDate, eventDate});
-            }
-            return event;
-          });
-        });
-      }
-      else if (action === 'reschedule') {
-        // For reschedule, we should receive a new event object from the backend that already 
-        // has all the necessary properties, including the rescheduled_from reference
-        console.log('[Chat Reschedule Action] Received event for reschedule:', response.event);
-        setEvents(prev => {
-          // Find and mark the original event as deleted/rescheduled
-          const updatedEvents = prev.map(event => {
-            console.log(`[Chat Reschedule Action] Checking event (for original): ${event.title}, ID: ${event.id}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
-            // Check if this is a rescheduled event (has rescheduled_from ID)
-            if (response.event.rescheduled_from && response.event.rescheduled_from === event.id) { // CONDITION 1
-              console.log(`[Chat Reschedule Action] Match by rescheduled_from ID: ${event.id}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
-              // Mark the original event as deleted
-              console.log(`[Chat Reschedule Action] Original event found by ID: ${event.id}. Setting isDeleted=true`);
-              return {
-                ...event,
-                isDeleted: true
-              };
+            
+            // Exact title and date match
+            if (isExactTitleMatch && isEventOnSameDate) {
+              console.log('[App.js handleChatResponse] Delete - EXACT TITLE+DATE MATCH, marking as deleted:', event.title);
+              return { ...event, isDeleted: true };
             }
             
-            // Fallback: If rescheduled_from is not available, try to match by title and date
-            if (!response.event.rescheduled_from) { // CONDITION 2 (Fallback)
-              console.log('[Chat Reschedule Action] No rescheduled_from ID. Attempting fallback match for original.');
+            // Partial title match on same date (for flexible matching)
+            if (isEventOnSameDate && (hasTitleMatch || (titleLower === 'meeting' && isMeetingType))) {
+              console.log('[App.js handleChatResponse] Delete - PARTIAL MATCH, marking as deleted:', event.title);
+              return { ...event, isDeleted: true };
+            }
+            
+            console.log('[App.js handleChatResponse] Delete - No match for event:', event.title);
+            return event;
+          });
+          
+          console.log('[App.js handleChatResponse] Delete - Updated events:', updatedEvents.map(e => ({title: e.title, id: e.id, isDeleted: e.isDeleted})));
+          return updatedEvents;
+        });
+        // Force immediate calendar refresh
+        setForceCalendarRefresh(prev => prev + 1);
+      }
+      else if (action === 'reschedule') {
+        // For reschedule, we should receive a new event object from the backend
+        console.log('[App.js handleChatResponse] Processing reschedule action');
+        console.log('[App.js handleChatResponse] Reschedule - New event:', response.event);
+        console.log('[App.js handleChatResponse] Reschedule - Original event ID:', response.original_event_id);
+        
+        setEvents(prev => {
+          const updatedEvents = prev.map(event => {
+            console.log('[App.js handleChatResponse] Reschedule - Checking event:', event.title, 'ID:', event.id, 'isDeleted:', event.isDeleted);
+            
+            // Primary condition: Match by original_event_id from response
+            if (response.original_event_id && response.original_event_id === event.id) {
+              console.log('[App.js handleChatResponse] Reschedule - MATCH by original_event_id:', event.id, '-> marking as deleted');
+              return { ...event, isDeleted: true };
+            }
+            
+            // Secondary condition: Match by rescheduled_from in the new event
+            if (response.event.rescheduled_from && response.event.rescheduled_from === event.id) {
+              console.log('[App.js handleChatResponse] Reschedule - MATCH by rescheduled_from:', event.id, '-> marking as deleted');
+              return { ...event, isDeleted: true };
+            }
+            
+            // Fallback: Match by title and approximate date if no ID match
+            if (!response.original_event_id && !response.event.rescheduled_from) {
+              console.log('[App.js handleChatResponse] Reschedule - Using fallback matching');
               const eventDate = new Date(event.start).toDateString();
-              const responseOriginalDate = response.event.originalStart ? new Date(response.event.originalStart).toDateString() : null;
+              const responseOriginalDate = response.event.originalStart ? 
+                new Date(response.event.originalStart).toDateString() : null;
               
               if (event.title.toLowerCase().includes(response.event.title.toLowerCase()) && 
                   eventDate === responseOriginalDate) {
-                console.log(`[Chat Reschedule Action] Fallback match found for event: ${event.title} on ${eventDate}. Setting isDeleted=true`);
-                return {
-                  ...event,
-                  isDeleted: true
-                };
+                console.log('[App.js handleChatResponse] Reschedule - FALLBACK MATCH:', event.title, 'on', eventDate, '-> marking as deleted');
+                return { ...event, isDeleted: true };
               }
             }
             
             return event;
           });
           
-          // Add the new rescheduled event
-          updatedEvents.push({
+          // Add the new rescheduled event (ensure it's not marked as deleted)
+          const newEvent = {
             ...response.event,
-            id: response.event.id || uuidv4(), // Ensure new event has an ID
-            isDeleted: response.event.isDeleted || false, // Map backend fields to frontend
+            id: response.event.id || uuidv4(),
+            isDeleted: false, // Explicitly ensure new event is not deleted
             rescheduledFrom: response.event.rescheduled_from || null
-          });
+          };
+          
+          console.log('[App.js handleChatResponse] Reschedule - Adding new event:', newEvent);
+          updatedEvents.push(newEvent);
+          
+          console.log('[App.js handleChatResponse] Reschedule - Final updated events:', 
+            updatedEvents.map(e => ({title: e.title, id: e.id, isDeleted: e.isDeleted, rescheduledFrom: e.rescheduledFrom})));
           
           return updatedEvents;
         });
+        // Force immediate calendar refresh
+        setForceCalendarRefresh(prev => prev + 1);
       }
+    } else {
+      console.log('[App.js handleChatResponse] No event in response');
     }
   };
 
@@ -308,6 +343,9 @@ function App() {
             {user && (
               <div className="user-info">
                 <span>{user.email}</span>
+                <button onClick={fetchEvents} className="refresh-button" title="Refresh from database">
+                  🔄
+                </button>
                 <button onClick={signOut} className="signout-button">Sign Out</button>
                 <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
               </div>
@@ -326,7 +364,7 @@ function App() {
               </div>
             </div>
             <div className="calendar-container">
-              <Calendar events={events} onEventsChange={handleEventsChange} user={user} />
+              <Calendar events={events} onEventsChange={handleEventsChange} user={user} forceRefresh={forceCalendarRefresh} />
             </div>
             <div className="chat-panel">
               <div className="chatbot-container">

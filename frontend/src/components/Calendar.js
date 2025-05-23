@@ -11,7 +11,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 
 const localizer = momentLocalizer(moment);
 
-export const Calendar = ({ events, onEventsChange, user }) => {
+export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalForceRefresh }) => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
   const [rescheduleData, setRescheduleData] = useState({
@@ -46,8 +46,8 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Create a key that changes when events change to force BigCalendar re-render
   const calendarKey = useMemo(() => {
-    return `${forceRefresh}-${events.map(e => `${e.id}-${e.isDeleted}-${e.rescheduledFrom ? 'reschedule' : 'normal'}`).join(',')}`;
-  }, [events, forceRefresh]);
+    return `${forceRefresh}-${externalForceRefresh || 0}-${events.map(e => `${e.id}-${e.isDeleted}-${e.rescheduledFrom ? 'reschedule' : 'normal'}`).join(',')}`;
+  }, [events, forceRefresh, externalForceRefresh]);
 
   const handleSelectEvent = (event) => {
     setSelectedEvent(event.resource);

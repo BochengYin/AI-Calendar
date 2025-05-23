@@ -1458,4 +1458,42 @@ body {
 .upcoming-event-card.deleted-event {
   background-color: #fffbe6; /* Light yellow, similar to warning or notes */
   opacity: 0.7;
+}
+
+/* User info and header buttons */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.refresh-button {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.refresh-button:hover {
+  background-color: #f0f0f0;
+  border-color: #999;
+}
+
+.signout-button, .system-status-button {
+  background-color: var(--apple-gray5);
+  color: var(--apple-blue);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.signout-button:hover, .system-status-button:hover {
+  background-color: var(--apple-gray4);
 } 
