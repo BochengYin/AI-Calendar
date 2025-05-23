@@ -149,48 +149,62 @@ export const Calendar = ({ events, onEventsChange, user }) => {
       return;
     }
     
+    const isAlreadySoftDeleted = selectedEvent.isDeleted === true;
+
     if (!selectedEvent.id && selectedEvent.id !== 0) {
-      // For events without an ID, just update local state
+      // For events without an ID (e.g., local only, not yet saved), just filter out
       const updatedEvents = events.filter(event => 
         event.title !== selectedEvent.title || 
         event.start !== selectedEvent.start || 
         event.end !== selectedEvent.end
       );
       
-      // Notify parent component about the change
       if (onEventsChange) {
         onEventsChange(updatedEvents);
       }
-      
-      // Close the modal
       closeEventDetails();
       return;
     }
 
     try {
+      // Always call the backend to ensure it's deleted there
       const response = await axios.delete(`${API_BASE_URL}/api/events/${selectedEvent.id}`);
       
       if (response.data.status === 'success') {
-        // IMMEDIATELY mark event as deleted in local state without waiting for backend refresh
-        const updatedEvents = events.map(event => 
-          event.id === selectedEvent.id 
-            ? { ...event, isDeleted: true } 
-            : event
-        );
+        let updatedEvents;
+        if (isAlreadySoftDeleted) {
+          // If it was already soft-deleted (Clean button was clicked), filter it out completely
+          updatedEvents = events.filter(event => event.id !== selectedEvent.id);
+        } else {
+          // If it was an active event (Delete button was clicked), mark it as deleted (soft delete)
+          updatedEvents = events.map(event => 
+            event.id === selectedEvent.id 
+              ? { ...event, isDeleted: true } 
+              : event
+          );
+        }
         
-        // Notify parent component about the change
         if (onEventsChange) {
           onEventsChange(updatedEvents);
         }
         
-        // Close the modal
         closeEventDetails();
       } else {
-        alert('Failed to delete event');
+        alert('Failed to delete event from backend');
       }
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
+      // If backend fails but we are 'cleaning' an already soft-deleted event, still remove from UI
+      if (isAlreadySoftDeleted) {
+        const updatedEvents = events.filter(event => event.id !== selectedEvent.id);
+        if (onEventsChange) {
+          onEventsChange(updatedEvents);
+        }
+        closeEventDetails();
+        alert(`Event cleaned from view. Backend error: ${error.response?.data?.message || error.message}`);
+      } else {
+        alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
+      }
     }
   };
 
@@ -390,7 +404,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
                     </button>
                   </div>
                 )}
-                {selectedEvent.isDeleted && !selectedEvent.isRescheduled && (
+                {selectedEvent.isDeleted && (
                   <div className="event-actions">
                     <button
                       className="btn action-btn clean-btn"
