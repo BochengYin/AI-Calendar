@@ -390,6 +390,17 @@ export const Calendar = ({ events, onEventsChange, user }) => {
                     </button>
                   </div>
                 )}
+                {selectedEvent.isDeleted && !selectedEvent.isRescheduled && (
+                  <div className="event-actions">
+                    <button
+                      className="btn action-btn clean-btn"
+                      onClick={handleDeleteEvent}
+                      title="Permanently remove this event from calendar"
+                    >
+                      Clean
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="event-detail-content">
