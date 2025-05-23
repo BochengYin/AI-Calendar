@@ -2,18 +2,18 @@
 
 ```mermaid
 graph LR
-  subgraph Frontend (React)
-    A[React App] -- REST / JWT --> B(API Gateway / Flask)
+  subgraph "Frontend (React)"
+    A["React App"] -- "REST / JWT" --> B["API Gateway / Flask"]
   end
 
-  subgraph Backend (Flask)
-    B --> C[ChatGPT Orchestrator]
-    B --> D[Event CRUD]
+  subgraph "Backend (Flask)"
+    B --> C["ChatGPT Orchestrator"]
+    B --> D["Event CRUD"]
   end
 
-  C -- OpenAI API --> E(OpenAI GPT-4o-mini)
-  D -- Supabase Client --> F[(Supabase DB)]
-  F -- Row-Level Security --> F
+  C -- "OpenAI API" --> E["OpenAI GPT-4o-mini"]
+  D -- "Supabase Client" --> F[("Supabase DB")]
+  F -- "Row-Level Security" --> F
 ```
 
 1. **React Frontend** – provides calendar UI and chat interface, authenticates via Supabase Auth and calls Flask API with the user's JWT.
