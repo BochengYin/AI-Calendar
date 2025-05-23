@@ -11,6 +11,62 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 
 const localizer = momentLocalizer(moment);
 
+// Custom Apple-style toolbar component
+const CustomToolbar = ({ label, onNavigate, onView, view, views }) => {
+  return (
+    <div className="calendar-toolbar">
+      <div className="toolbar-navigation">
+        <button 
+          type="button" 
+          className="nav-button today-button"
+          onClick={() => onNavigate('TODAY')}
+        >
+          Today
+        </button>
+        <div className="nav-arrows">
+          <button 
+            type="button" 
+            className="nav-arrow prev-button"
+            onClick={() => onNavigate('PREV')}
+            aria-label="Previous"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button 
+            type="button" 
+            className="nav-arrow next-button"
+            onClick={() => onNavigate('NEXT')}
+            aria-label="Next"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M6 4L10 8L6 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      
+      <div className="toolbar-title">
+        {label}
+      </div>
+      
+      <div className="toolbar-views">
+        {views.map(name => (
+          <button
+            key={name}
+            type="button"
+            className={`view-button ${view === name ? 'active' : ''}`}
+            onClick={() => onView(name)}
+          >
+            {name.charAt(0).toUpperCase() + name.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalForceRefresh }) => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isRescheduling, setIsRescheduling] = useState(false);
@@ -201,36 +257,22 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
         
         closeEventDetails();
       } else {
-        alert('Failed to delete event from backend');
+        alert('Failed to delete event');
       }
     } catch (error) {
       console.error('Error deleting event:', error);
-      // If backend fails but we are 'cleaning' an already soft-deleted event, still remove from UI
-      if (isAlreadySoftDeleted) {
-        const updatedEvents = events.filter(event => event.id !== selectedEvent.id);
-        if (onEventsChange) {
-          onEventsChange(updatedEvents);
-        }
-        closeEventDetails();
-        alert(`Event cleaned from view. Backend error: ${error.response?.data?.message || error.message}`);
-      } else {
-        alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
-      }
+      alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
     }
   };
 
   const startReschedule = () => {
-    // Pre-fill the reschedule form with current dates
-    const start = moment(selectedEvent.start);
-    const end = moment(selectedEvent.end);
-    
+    // Set initial reschedule data based on selected event
     setRescheduleData({
-      startDate: start.format('YYYY-MM-DD'),
-      startTime: start.format('HH:mm'),
-      endDate: end.format('YYYY-MM-DD'),
-      endTime: end.format('HH:mm')
+      startDate: moment(selectedEvent.start).format('YYYY-MM-DD'),
+      startTime: moment(selectedEvent.start).format('HH:mm'),
+      endDate: moment(selectedEvent.end).format('YYYY-MM-DD'),
+      endTime: moment(selectedEvent.end).format('HH:mm')
     });
-    
     setIsRescheduling(true);
   };
 
@@ -245,33 +287,24 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
   const submitReschedule = async (e) => {
     e.preventDefault();
     
-    if (!selectedEvent || !selectedEvent.id) {
-      alert('Cannot reschedule event: No event ID found');
-      return;
-    }
-    
-    // Create new date objects from the form data
     const startDateTime = moment(`${rescheduleData.startDate} ${rescheduleData.startTime}`).format();
     const endDateTime = moment(`${rescheduleData.endDate} ${rescheduleData.endTime}`).format();
     
-    // Create updated event object
-    const updatedEvent = {
-      ...selectedEvent,
+    const reschedulePayload = {
       start: startDateTime,
       end: endDateTime
     };
     
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/api/events/${selectedEvent.id}`, 
-        updatedEvent
-      );
+      const response = await axios.put(`${API_BASE_URL}/api/events/${selectedEvent.id}/reschedule`, reschedulePayload);
       
-      if (response.data.status === 'success') {
-        // Update event in local state
+      if (response.status === 200) {
+        const rescheduledEvent = response.data;
+        
+        // Update the events array with the rescheduled event
         const updatedEvents = events.map(event => 
           event.id === selectedEvent.id 
-            ? response.data.updated_event 
+            ? rescheduledEvent 
             : event
         );
         
@@ -280,23 +313,24 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
           onEventsChange(updatedEvents);
         }
         
-        // Force calendar re-render to immediately show styling changes
+        // Force calendar re-render for consistency
         setForceRefresh(prev => prev + 1);
         
-        // Close the modal
+        // Close the reschedule form
+        setIsRescheduling(false);
         closeEventDetails();
       } else {
         alert('Failed to reschedule event');
       }
     } catch (error) {
       console.error('Error rescheduling event:', error);
-      alert('An error occurred while rescheduling the event');
+      alert(`Error rescheduling event: ${error.response?.data?.message || error.message}`);
     }
   };
 
-  // Custom event component with tooltip
+  // Event component for displaying events
   const EventComponent = ({ event }) => (
-    <div className={`calendar-event-wrapper ${event.isDeleted ? 'event-deleted' : ''}`}>
+    <div className="calendar-event-wrapper">
       <div className="calendar-event">
         {event.title}
       </div>
@@ -308,25 +342,18 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
         {event.resource.description && (
           <div className="tooltip-description">{event.resource.description}</div>
         )}
-        {event.isDeleted && (
-          <div className="tooltip-status deleted">Deleted</div>
-        )}
-        {event.rescheduledFrom && !event.isDeleted && (
-          <div className="tooltip-status rescheduled">Rescheduled</div>
-        )}
+        {event.isDeleted && <div className="tooltip-status deleted">Deleted</div>}
+        {event.rescheduledFrom && <div className="tooltip-status rescheduled">Rescheduled</div>}
       </div>
     </div>
   );
 
-  // Style getter for events
   const eventStyleGetter = (event, start, end, isSelected) => {
-    console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
-    let style = {
-      backgroundColor: event.isDeleted ? '#fff3cd' : '#007aff', // More distinct yellow for deleted events
-      borderRadius: '5px',
-      opacity: event.isDeleted ? 0.8 : 1,
-      color: event.isDeleted ? '#856404' : 'white', // Darker text for better contrast on yellow
-      border: event.isDeleted ? '1px solid #ffeaa7' : '0px',
+    const style = {
+      backgroundColor: event.isDeleted ? '#FFCC00' : '#007AFF',
+      borderRadius: '4px',
+      color: event.isDeleted ? '#666' : 'white',
+      border: 'none',
       display: 'block',
       textDecoration: event.isDeleted ? 'line-through' : 'none',
       fontWeight: event.isDeleted ? 'normal' : 'bold'
@@ -348,7 +375,8 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
           endAccessor="end"
           style={{ height: '800px', minHeight: '600px' }}
           components={{
-            event: EventComponent
+            event: EventComponent,
+            toolbar: CustomToolbar
           }}
           eventPropGetter={eventStyleGetter}
           onSelectEvent={handleSelectEvent}
