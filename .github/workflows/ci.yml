@@ -29,6 +29,14 @@ jobs:
         run: |
           python -m pytest backend/tests
 
+      - name: Lint with Flake8
+        run: |
+          flake8 --config=backend/.flake8 backend/
+
+      - name: Check formatting with Black
+        run: |
+          black --check backend/
+
       # ---------- Frontend (Node) ----------
       - name: Set up Node.js
         uses: actions/setup-node@v3

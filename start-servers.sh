@@ -7,14 +7,16 @@ set -e
 echo "🚀 Starting AI Calendar servers..."
 
 # Check if ports are already in use
-if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
-    echo "Port 8000 is already in use. Stopping the process..."
+if lsof -Pi :12345 -sTCP:LISTEN -t >/dev/null ; then
+    echo "Port 12345 is already in use. Stopping the process..."
     pkill -f "python3 app.py" || true
 fi
 
 if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
-    echo "Port 3000 is already in use. Please close the application using this port."
-    exit 1
+    echo "Port 3000 is already in use. Stopping the process..."
+    # Attempt to kill the process using port 3000
+    # This is a common way to find and kill the process on macOS/Linux
+    lsof -t -i:3000 | xargs kill -9 || true
 fi
 
 # Start backend server
@@ -33,10 +35,10 @@ if [ ! -f "requirements.txt" ]; then
     exit 1
 fi
 
-# Run backend server in background
-python3 app.py &
+# Run backend server in background with port 12345
+PORT=12345 python3 app.py &
 BACKEND_PID=$!
-echo "✅ Backend server started (PID: $BACKEND_PID)"
+echo "✅ Backend server started on port 12345 (PID: $BACKEND_PID)"
 
 # Start frontend server
 echo "🔧 Starting the frontend server..."
@@ -54,7 +56,7 @@ FRONTEND_PID=$!
 echo "✅ Frontend server started (PID: $FRONTEND_PID)"
 
 echo "🎉 Both servers are now running!"
-echo "📊 Backend server: http://localhost:8000"
+echo "📊 Backend server: http://localhost:12345"
 echo "🖥️ Frontend server: http://localhost:3000"
 echo ""
 echo "Press Ctrl+C to stop both servers"

@@ -1,8 +1,6 @@
 import os
 import logging
 import traceback
-import time
-import random
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
@@ -34,10 +32,11 @@ except Exception as e:
     logger.error(traceback.format_exc())
     print(f"Error initializing Supabase client: {str(e)}")
 
+
 def get_supabase_client() -> Client:
     """
     Get the Supabase client instance.
-    
+
     Returns:
         Client: The Supabase client instance.
     """
@@ -45,20 +44,28 @@ def get_supabase_client() -> Client:
         error_msg = "Supabase client not initialized. Check environment variables."
         logger.error(error_msg)
         raise Exception(error_msg)
-        
+
     # Test connection - no longer using with_retry here
     try:
         # Attempt a simple query to verify connection
         logger.debug("Testing Supabase connection within get_supabase_client...")
+
         # Just fetch the count of events as a simple test
-        def test_connection_direct(): # Renamed to avoid conflict if with_retry was imported
-            return supabase.table('events').select('id', count='exact').limit(1).execute()
-            
-        response = test_connection_direct() # Direct call
-        logger.info(f"Supabase connection test (within get_supabase_client) succeeded: {response.count} events found")
+        def test_connection_direct():  # Renamed to avoid conflict if with_retry was imported
+            return (
+                supabase.table("events").select("id", count="exact").limit(1).execute()
+            )
+
+        response = test_connection_direct()  # Direct call
+        logger.info(
+            f"Supabase connection test (within get_supabase_client) succeeded: "
+            f"{response.count} events found"
+        )
     except Exception as e:
-        logger.error(f"Supabase connection test (within get_supabase_client) failed: {str(e)}")
+        logger.error(
+            f"Supabase connection test (within get_supabase_client) failed: {str(e)}"
+        )
         logger.error(traceback.format_exc())
         # Still return the client so calling code can handle specific errors
-    
-    return supabase 
+
+    return supabase

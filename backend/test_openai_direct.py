@@ -5,7 +5,6 @@ This bypasses Flask and tests OpenAI directly.
 """
 import os
 import sys
-import json
 from dotenv import load_dotenv
 import httpx
 from openai import OpenAI
@@ -25,34 +24,35 @@ for env_var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
         print(f"Removing {env_var} from environment")
         del os.environ[env_var]
 
+
 def test_openai():
     if not api_key:
         print("No API key found. Please set OPENAI_API_KEY in your .env file.")
         return False
-    
+
     try:
         print("Creating custom HTTP client...")
         http_client = httpx.Client(
             timeout=60.0,
             follow_redirects=True,
         )
-        
+
         print("Initializing OpenAI client...")
         client = OpenAI(
             api_key=api_key,
             http_client=http_client,
         )
-        
+
         print("Making API request to OpenAI...")
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "Say hello in one word."}
+                {"role": "user", "content": "Say hello in one word."},
             ],
-            max_tokens=10
+            max_tokens=10,
         )
-        
+
         result = completion.choices[0].message.content
         print(f"API call successful. Response: {result}")
         return True
@@ -60,7 +60,8 @@ def test_openai():
         print(f"Error testing OpenAI API: {e}")
         return False
 
+
 if __name__ == "__main__":
     print(f"Python version: {sys.version}")
     success = test_openai()
-    sys.exit(0 if success else 1) 
+    sys.exit(0 if success else 1)

@@ -11,8 +11,9 @@ CREATE TABLE IF NOT EXISTS events (
   description TEXT,
   start TIMESTAMPTZ NOT NULL,
   "end" TIMESTAMPTZ NOT NULL,
-  allDay BOOLEAN DEFAULT FALSE,
+  all_day BOOLEAN DEFAULT FALSE,
   user_id UUID DEFAULT auth.uid(),
+  user_email TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -121,4 +122,4 @@ EXECUTE FUNCTION update_modified_column();
 -- TO anon, authenticated
 -- USING (
 --   public = TRUE  -- You would need to add a "public" column to your events table
--- ); 
+-- );
