@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS events (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   user_email TEXT NOT NULL,
   is_deleted BOOLEAN DEFAULT false,
-  is_rescheduled BOOLEAN DEFAULT false,
   rescheduled_from UUID REFERENCES events(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()

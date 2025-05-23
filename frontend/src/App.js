@@ -46,17 +46,19 @@ function App() {
       
       // Transform events to ensure they all have IDs and map backend field names to frontend field names
       const fetchedEvents = response.data.map(event => ({
-        ...event,
-        id: event.id || crypto.randomUUID(), // Ensure an ID exists
+        id: event.id,
+        title: event.title,
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay || false,
+        description: event.description || '',
         isDeleted: event.is_deleted || false, // Map is_deleted to isDeleted
-        isRescheduled: event.is_rescheduled || false, // Map is_rescheduled to isRescheduled
-        // If this event was rescheduled from another, keep the reference
         rescheduledFrom: event.rescheduled_from || null
       }));
       
       console.log(`Fetched ${fetchedEvents.length} events`);
       if (fetchedEvents.length > 0) {
-        console.log(`First event: ${fetchedEvents[0].title}, isDeleted: ${fetchedEvents[0].isDeleted}, isRescheduled: ${fetchedEvents[0].isRescheduled}`);
+        console.log(`First event: ${fetchedEvents[0].title}, isDeleted: ${fetchedEvents[0].isDeleted}, rescheduledFrom: ${fetchedEvents[0].rescheduledFrom}`);
       }
       setEvents(fetchedEvents);
       return true;
@@ -178,41 +180,30 @@ function App() {
         setEvents(prev => {
           // Find and mark the original event as deleted/rescheduled
           const updatedEvents = prev.map(event => {
-            console.log(`[Chat Reschedule Action] Checking event (for original): ${event.title}, ID: ${event.id}, isDeleted: ${event.isDeleted}, isRescheduled: ${event.isRescheduled}`);
-            // If this event is the original that was rescheduled, mark it as deleted
+            console.log(`[Chat Reschedule Action] Checking event (for original): ${event.title}, ID: ${event.id}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
+            // Check if this is a rescheduled event (has rescheduled_from ID)
             if (response.event.rescheduled_from && response.event.rescheduled_from === event.id) { // CONDITION 1
-              console.log(`[Chat Reschedule Action] MATCHED original event by ID: ${event.title}, ID: ${event.id}. Setting isDeleted=true, isRescheduled=true`);
-              return { 
-                ...event, 
-                isDeleted: true, 
-                isRescheduled: true
+              console.log(`[Chat Reschedule Action] Match by rescheduled_from ID: ${event.id}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
+              // Mark the original event as deleted
+              console.log(`[Chat Reschedule Action] Original event found by ID: ${event.id}. Setting isDeleted=true`);
+              return {
+                ...event,
+                isDeleted: true
               };
             }
             
-            // If that fails, try the old way - fuzzy match by title and date
+            // Fallback: If rescheduled_from is not available, try to match by title and date
             if (!response.event.rescheduled_from) { // CONDITION 2 (Fallback)
               console.log('[Chat Reschedule Action] No rescheduled_from ID. Attempting fallback match for original.');
-              const eventDatePart = event.start ? event.start.split('T')[0] : '';
-              const originalDatePart = response.event.originalStart ? response.event.originalStart.split('T')[0] : '';
-              const eventTitleLower = event.title ? event.title.toLowerCase() : '';
-              // IMPORTANT: originalTitleLower should ideally come from the *original* event's title if known by chat API
-              // For now, it uses the new event's title from response.event.title for matching, which might be problematic.
-              const newEventTitleLower = response.event.title ? response.event.title.toLowerCase() : ''; 
+              const eventDate = new Date(event.start).toDateString();
+              const responseOriginalDate = response.event.originalStart ? new Date(response.event.originalStart).toDateString() : null;
               
-              const dateMatches = eventDatePart === originalDatePart;
-              const titleMatches = eventTitleLower.includes(newEventTitleLower) || 
-                                  newEventTitleLower.includes(eventTitleLower) ||
-                                  (eventTitleLower.split(' ').some(word => newEventTitleLower.includes(word) && word.length > 3));
-              
-              console.log(`[Chat Reschedule Action] Fallback matching criteria for ${event.title}:`, 
-                { eventDatePart, originalDatePart, eventTitleLower, newEventTitleLower, dateMatches, titleMatches });
-
-              if (dateMatches && titleMatches && !event.isDeleted) {
-                console.log(`[Chat Reschedule Action] MATCHED original event by fallback: ${event.title}, ID: ${event.id}. Setting isDeleted=true, isRescheduled=true`);
-                return { 
-                  ...event, 
-                  isDeleted: true, 
-                  isRescheduled: true
+              if (event.title.toLowerCase().includes(response.event.title.toLowerCase()) && 
+                  eventDate === responseOriginalDate) {
+                console.log(`[Chat Reschedule Action] Fallback match found for event: ${event.title} on ${eventDate}. Setting isDeleted=true`);
+                return {
+                  ...event,
+                  isDeleted: true
                 };
               }
             }
@@ -220,17 +211,15 @@ function App() {
             return event;
           });
           
-          // Make sure the received event has all frontend-expected properties
-          const newEvent = {
+          // Add the new rescheduled event
+          updatedEvents.push({
             ...response.event,
             id: response.event.id || uuidv4(), // Ensure new event has an ID
             isDeleted: response.event.isDeleted || false, // Map backend fields to frontend
-            isRescheduled: false // New event is not rescheduled itself
-          };
+            rescheduledFrom: response.event.rescheduled_from || null
+          });
           
-          console.log("[Chat Reschedule Action] Adding new/rescheduled event to calendar:", newEvent);
-          
-          return [...updatedEvents.filter(ev => ev.id !== newEvent.id), newEvent]; // Ensure new event replaces any existing one with same ID, then add
+          return updatedEvents;
         });
       }
     }

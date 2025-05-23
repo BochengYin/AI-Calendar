@@ -61,16 +61,15 @@ Note: In newer versions of Supabase, CORS is automatically configured based on y
 ```sql
 -- Create events table with Row Level Security
 CREATE TABLE IF NOT EXISTS events (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
   start TIMESTAMPTZ NOT NULL,
   "end" TIMESTAMPTZ NOT NULL,
   all_day BOOLEAN DEFAULT false,
   description TEXT,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  user_email TEXT NOT NULL,
+  user_email VARCHAR(255) NOT NULL,
   is_deleted BOOLEAN DEFAULT false,
-  is_rescheduled BOOLEAN DEFAULT false,
   rescheduled_from UUID REFERENCES events(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
@@ -104,8 +103,8 @@ CREATE POLICY events_delete_policy
 DROP VIEW IF EXISTS public.upcoming_events;
 CREATE VIEW public.upcoming_events AS
 SELECT id, title, start, "end", all_day, description,
-       user_id, user_email, is_deleted, is_rescheduled,
-       rescheduled_from, created_at, updated_at
+       user_id, user_email, is_deleted, rescheduled_from,
+       created_at, updated_at
 FROM events
 WHERE is_deleted = false AND "end" > now()
 ORDER BY start;

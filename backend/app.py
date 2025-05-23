@@ -243,8 +243,6 @@ def load_events_from_supabase():
                 # Add any additional fields from the database
                 if event_item.get("is_deleted"):
                     converted_event["isDeleted"] = event_item.get("is_deleted")
-                if event_item.get("is_rescheduled"):
-                    converted_event["isRescheduled"] = event_item.get("is_rescheduled")
                 if event_item.get("rescheduled_from"):
                     converted_event["rescheduledFrom"] = event_item.get(
                         "rescheduled_from"
@@ -338,9 +336,9 @@ def get_events_route():
                             }
                             if event_item.get("is_deleted"):
                                 local_event["isDeleted"] = event_item.get("is_deleted")
-                            if event_item.get("is_rescheduled"):
-                                local_event["isRescheduled"] = event_item.get(
-                                    "is_rescheduled"
+                            if event_item.get("rescheduled_from"):
+                                local_event["rescheduledFrom"] = event_item.get(
+                                    "rescheduled_from"
                                 )
                             local_events_cache.append(local_event)
 
@@ -1095,14 +1093,14 @@ def chat_route():
                                     update_query_rs_val = (
                                         supabase.table("events")
                                         .update(
-                                            {"is_deleted": True, "is_rescheduled": True}
+                                            {"is_deleted": True}
                                         )
                                         .eq("id", original_id_rs_val)
                                         .execute()
                                     )
                                     logger.info(
                                         f"Updated original event (ID: {original_id_rs_val}) "
-                                        f"as deleted and rescheduled: {update_query_rs_val.data}"
+                                        f"as deleted: {update_query_rs_val.data}"
                                     )
                                     if not update_query_rs_val.data:
                                         logger.warning(
@@ -1131,7 +1129,6 @@ def chat_route():
                                         "user_email": user_email_chat,
                                         "rescheduled_from": original_id_rs_val,
                                         "is_deleted": False,
-                                        "is_rescheduled": False,
                                     }
                                     logger.info(
                                         f"Created new rescheduled event object: "
@@ -1188,7 +1185,6 @@ def chat_route():
                                                 "start": new_start_reschedule,
                                                 "end": new_end_reschedule,
                                                 "isDeleted": False,
-                                                "isRescheduled": False,
                                             }
                                         )
                                         logger.info(

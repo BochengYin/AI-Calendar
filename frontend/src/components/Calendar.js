@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import moment from 'moment';
@@ -40,9 +40,13 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     allDay: event.allDay || false,
     resource: event,
     isDeleted: event.isDeleted || false,
-    isRescheduled: event.isRescheduled || false,
     rescheduledFrom: event.rescheduledFrom || null
   }));
+
+  // Create a key that changes when events change to force BigCalendar re-render
+  const calendarKey = useMemo(() => {
+    return events.map(e => `${e.id}-${e.isDeleted}-${e.rescheduledFrom ? 'reschedule' : 'normal'}`).join(',');
+  }, [events]);
 
   const handleSelectEvent = (event) => {
     setSelectedEvent(event.resource);
@@ -282,7 +286,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Custom event component with tooltip
   const EventComponent = ({ event }) => (
-    <div className={`calendar-event-wrapper ${event.isDeleted || event.isRescheduled ? 'event-deleted' : ''}`}>
+    <div className={`calendar-event-wrapper ${event.isDeleted || event.rescheduledFrom ? 'event-deleted' : ''}`}>
       <div className="calendar-event">
         {event.title}
       </div>
@@ -294,10 +298,10 @@ export const Calendar = ({ events, onEventsChange, user }) => {
         {event.resource.description && (
           <div className="tooltip-description">{event.resource.description}</div>
         )}
-        {event.isDeleted && !event.isRescheduled && (
+        {event.isDeleted && !event.rescheduledFrom && (
           <div className="tooltip-status deleted">Deleted</div>
         )}
-        {event.isRescheduled && (
+        {event.rescheduledFrom && (
           <div className="tooltip-status rescheduled">Rescheduled</div>
         )}
       </div>
@@ -306,15 +310,15 @@ export const Calendar = ({ events, onEventsChange, user }) => {
 
   // Style getter for events
   const eventStyleGetter = (event, start, end, isSelected) => {
-    console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, isRescheduled: ${event.isRescheduled}`);
+    console.log(`[Calendar.js eventStyleGetter] Event: ${event.title}, isDeleted: ${event.isDeleted}, rescheduledFrom: ${event.rescheduledFrom}`);
     let style = {
-      backgroundColor: event.isDeleted ? '#fffbe6' : (event.isRescheduled ? '#e6f7ff' : '#007aff'),
+      backgroundColor: event.isDeleted ? '#fffbe6' : (event.rescheduledFrom ? '#e6f7ff' : '#007aff'),
       borderRadius: '5px',
-      opacity: event.isDeleted ? 0.7 : 1,
-      color: event.isDeleted ? '#8c8c8c' : 'white',
+      opacity: event.isDeleted || event.rescheduledFrom ? 0.7 : 1,
+      color: event.isDeleted || event.rescheduledFrom ? '#8c8c8c' : 'white',
       border: '0px',
       display: 'block',
-      textDecoration: event.isDeleted ? 'line-through' : 'none'
+      textDecoration: event.isDeleted || event.rescheduledFrom ? 'line-through' : 'none'
     };
     return {
       style: style
@@ -325,6 +329,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
     <div className="calendar-view">
       <h2 className="text-center mb-4">AI Calendar</h2>
       <BigCalendar
+        key={calendarKey}
         localizer={localizer}
         events={calendarEvents}
         startAccessor="start"
@@ -347,7 +352,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
             <div className="event-detail-header">
               <h3>{selectedEvent.title}</h3>
               {selectedEvent.isDeleted && <span className="event-status deleted">Deleted</span>}
-              {selectedEvent.rescheduled_from && <span className="event-status rescheduled">Rescheduled</span>}
+              {selectedEvent.rescheduledFrom && <span className="event-status rescheduled">Rescheduled</span>}
             </div>
             
             {!isRescheduling ? (
@@ -369,11 +374,11 @@ export const Calendar = ({ events, onEventsChange, user }) => {
                   </div>
                 )}
                 
-                {selectedEvent.rescheduled_from && (
+                {selectedEvent.rescheduledFrom && (
                   <div className="detail-row original-schedule">
                     <div className="detail-label">Original Schedule</div>
                     <div className="detail-value">
-                      {moment(selectedEvent.rescheduled_from.start).format('MMM D, YYYY h:mm A')} - {moment(selectedEvent.rescheduled_from.end).format('h:mm A')}
+                      {moment(selectedEvent.rescheduledFrom.start).format('MMM D, YYYY h:mm A')} - {moment(selectedEvent.rescheduledFrom.end).format('h:mm A')}
                     </div>
                   </div>
                 )}
