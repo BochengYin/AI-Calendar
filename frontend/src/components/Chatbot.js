@@ -9,7 +9,9 @@ const debug = (message, data) => {
 
 // Backend API URL - easier to change if needed
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
-console.log('Chatbot using API URL:', API_BASE_URL);
+if (process.env.NODE_ENV !== 'test') {
+  console.log('Chatbot using API URL:', API_BASE_URL);
+}
 
 export const Chatbot = ({ onEventAdded, userId, userEmail }) => {
   const [input, setInput] = useState('');

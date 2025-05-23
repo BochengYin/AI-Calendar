@@ -28,7 +28,7 @@ for env_var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
 def test_openai():
     if not api_key:
         print("No API key found. Please set OPENAI_API_KEY in your .env file.")
-        return False
+        assert False, "No API key found"
 
     try:
         print("Creating custom HTTP client...")
@@ -55,10 +55,11 @@ def test_openai():
 
         result = completion.choices[0].message.content
         print(f"API call successful. Response: {result}")
-        return True
+        assert result is not None, "Response should not be None"
+        assert len(result.strip()) > 0, "Response should not be empty"
     except Exception as e:
         print(f"Error testing OpenAI API: {e}")
-        return False
+        assert False, f"OpenAI API call failed: {e}"
 
 
 if __name__ == "__main__":
