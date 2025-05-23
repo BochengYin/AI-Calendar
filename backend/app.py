@@ -484,7 +484,10 @@ def create_event_route():
             ]
 
             if missing_fields:
-                error_msg = "Cannot save to Supabase: Missing required fields: " + ", ".join(missing_fields)
+                error_msg = (
+                    "Cannot save to Supabase: Missing required fields: "
+                    + ", ".join(missing_fields)
+                )
                 logger.error(error_msg)
                 # Will fall back to local storage below
             else:
@@ -677,7 +680,10 @@ def update_event_route(event_id_url):
             ]
 
             if missing_fields_put:
-                error_msg_put = "Cannot update in Supabase: Missing required fields: " + ", ".join(missing_fields_put)
+                error_msg_put = (
+                    "Cannot update in Supabase: Missing required fields: "
+                    + ", ".join(missing_fields_put)
+                )
                 logger.error(error_msg_put)
                 # Will still try to update local storage below
             else:
@@ -1092,9 +1098,7 @@ def chat_route():
                                 try:
                                     update_query_rs_val = (
                                         supabase.table("events")
-                                        .update(
-                                            {"is_deleted": True}
-                                        )
+                                        .update({"is_deleted": True})
                                         .eq("id", original_id_rs_val)
                                         .execute()
                                     )
