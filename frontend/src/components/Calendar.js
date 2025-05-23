@@ -305,29 +305,18 @@ export const Calendar = ({ events, onEventsChange, user }) => {
   );
 
   // Style getter for events
-  const eventStyleGetter = (event) => {
+  const eventStyleGetter = (event, start, end, isSelected) => {
     let style = {
-      backgroundColor: '#007aff',  // Blue for normal/new events
+      backgroundColor: event.isDeleted ? '#fffbe6' : (event.isRescheduled ? '#e6f7ff' : undefined),
       borderRadius: '5px',
-      color: 'white',
-      border: 'none',
+      opacity: event.isDeleted ? 0.7 : 1,
+      color: event.isDeleted ? '#8c8c8c' : 'black',
+      border: '0px',
       display: 'block',
-      overflow: 'hidden'
+      textDecoration: event.isDeleted ? 'line-through' : 'none'
     };
-    
-    let className = '';
-    
-    // Apply yellow with strikethrough to deleted or rescheduled events
-    if (event.isDeleted || event.isRescheduled) {
-      className = event.isDeleted ? 'event-deleted' : 'event-rescheduled';
-      style.backgroundColor = '#f0d98b';  // Yellow color
-      style.color = '#896c1d';
-    }
-    // New events (without isDeleted or isRescheduled flag) remain blue (default style)
-    
     return {
-      style,
-      className
+      style: style
     };
   };
 
@@ -336,7 +325,7 @@ export const Calendar = ({ events, onEventsChange, user }) => {
       <h2 className="text-center mb-4">AI Calendar</h2>
       <BigCalendar
         localizer={localizer}
-        events={calendarEvents}
+        events={calendarEvents.filter(event => !(event.isDeleted && event.isRescheduled))}
         startAccessor="start"
         endAccessor="end"
         style={{ height: 'calc(100vh - 140px)' }}

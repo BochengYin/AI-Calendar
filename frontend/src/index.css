@@ -1453,4 +1453,9 @@ body {
 /*   margin: 0 auto; */
 /* } */
 
-/* ... existing code ... */ 
+/* ... existing code ... */
+
+.upcoming-event-card.deleted-event {
+  background-color: #fffbe6; /* Light yellow, similar to warning or notes */
+  opacity: 0.7;
+} 
