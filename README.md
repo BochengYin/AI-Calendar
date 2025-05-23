@@ -155,3 +155,8 @@ AI-Calendar/
 ## License
 
 MIT
+
+## Documentation
+
+- 📜 High-level architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 🔌 REST API reference: [docs/API.md](docs/API.md)

@@ -144,7 +144,7 @@ Note: Make sure to use double quotes around the "end" column name as it's a rese
 
 ### Frontend (.env.development and .env.production):
 ```
-REACT_APP_API_URL=http://localhost:8000  # Or your backend URL for production
+REACT_APP_API_URL=http://localhost:12345  # Or your backend URL for production
 REACT_APP_SUPABASE_URL=your-project-url
 REACT_APP_SUPABASE_ANON_KEY=your-anon-key
 ```
