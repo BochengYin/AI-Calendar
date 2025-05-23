@@ -307,10 +307,10 @@ export const Calendar = ({ events, onEventsChange, user }) => {
   // Style getter for events
   const eventStyleGetter = (event, start, end, isSelected) => {
     let style = {
-      backgroundColor: event.isDeleted ? '#fffbe6' : (event.isRescheduled ? '#e6f7ff' : undefined),
+      backgroundColor: event.isDeleted ? '#fffbe6' : (event.isRescheduled ? '#e6f7ff' : '#007aff'),
       borderRadius: '5px',
       opacity: event.isDeleted ? 0.7 : 1,
-      color: event.isDeleted ? '#8c8c8c' : 'black',
+      color: event.isDeleted ? '#8c8c8c' : 'white',
       border: '0px',
       display: 'block',
       textDecoration: event.isDeleted ? 'line-through' : 'none'
