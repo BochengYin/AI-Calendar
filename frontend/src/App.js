@@ -144,10 +144,12 @@ function App() {
         // For delete action, immediately mark the matching events as deleted
         setEvents(prev => {
           const { title, start } = response.event;
+          console.log('[Chat Delete Action] Event to delete (from chat response):', title, start);
           const titleLower = title?.toLowerCase();
           const startDate = start?.split('T')[0]; // Get just the date part
           
           return prev.map(event => {
+            console.log('[Chat Delete Action] Checking event:', event.title, event.start, event.id);
             // Mark as deleted if:
             // 1. Title matches and it's on the same date, or
             // 2. It's on the same date and it's a "meeting" type event
@@ -156,8 +158,14 @@ function App() {
             const hasTitleMatch = titleLower && event.title?.toLowerCase().includes(titleLower);
             const isMeetingType = event.title?.toLowerCase().includes('meeting');
             
+            let markedForDeletion = false;
             if ((isEventOnSameDate && (hasTitleMatch || (titleLower === 'meeting' && isMeetingType)))) {
+              console.log('[Chat Delete Action] MATCHED event for deletion:', event.title, event.id);
+              markedForDeletion = true;
               return { ...event, isDeleted: true };
+            }
+            if (!markedForDeletion) {
+              console.log('[Chat Delete Action] No match for event:', event.title, event.id, {isEventOnSameDate, hasTitleMatch, isMeetingType, titleLower, startDate, eventDate});
             }
             return event;
           });
