@@ -1099,6 +1099,16 @@ body {
   background-color: rgba(255, 59, 48, 0.9);
 }
 
+.clean-btn {
+  background-color: #34c759; /* Apple green */
+  color: white;
+  border: none;
+}
+
+.clean-btn:hover {
+  background-color: rgba(52, 199, 89, 0.9);
+}
+
 /* Form styles */
 .form-group {
   margin-bottom: 15px;

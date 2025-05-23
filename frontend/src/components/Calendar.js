@@ -383,10 +383,11 @@ export const Calendar = ({ events, onEventsChange, user }) => {
                       Reschedule
                     </button>
                     <button 
-                      className="btn action-btn delete-btn" 
+                      className="btn action-btn clean-btn" 
                       onClick={handleDeleteEvent}
+                      title="Remove this event from your calendar"
                     >
-                      Delete
+                      Clean
                     </button>
                   </div>
                 )}
