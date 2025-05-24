@@ -342,45 +342,42 @@ const CalendarApp = () => {
           <Footer />
         </>
       ) : (
-        <>
-          <div className="main-layout">
-            <header className="app-header">
-              <div className="logo-and-title">
-                <h1>AI Calendar</h1>
-              </div>
-              {user && (
-                <div className="user-info">
-                  <span>{user.email}</span>
-                  <button onClick={signOut} className="signout-button">Sign Out</button>
-                  <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
-                </div>
-              )}
-            </header>
-            {refreshError && (
-              <div className="error-banner">
-                {refreshError}
-                <button onClick={fetchEvents}>Retry</button>
+        <div className="main-layout">
+          <header className="app-header">
+            <div className="logo-and-title">
+              <h1>AI Calendar</h1>
+            </div>
+            {user && (
+              <div className="user-info">
+                <span>{user.email}</span>
+                <button onClick={signOut} className="signout-button">Sign Out</button>
+                <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
               </div>
             )}
-            <div className="main-content">
-              <div className="left-panel">
-                <div className="upcoming-events-container">
-                  <UpcomingEvents events={events} />
-                </div>
-              </div>
-              <div className="calendar-container">
-                <Calendar events={events} onEventsChange={handleEventsChange} user={user} forceRefresh={forceCalendarRefresh} />
-              </div>
-              <div className="chat-panel">
-                <div className="chatbot-container">
-                  <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
-                </div>
+          </header>
+          {refreshError && (
+            <div className="error-banner">
+              {refreshError}
+              <button onClick={fetchEvents}>Retry</button>
+            </div>
+          )}
+          <div className="main-content">
+            <div className="left-panel">
+              <div className="upcoming-events-container">
+                <UpcomingEvents events={events} />
               </div>
             </div>
-            {showStatusModal && <StatusModal />}
+            <div className="calendar-container">
+              <Calendar events={events} onEventsChange={handleEventsChange} user={user} forceRefresh={forceCalendarRefresh} />
+            </div>
+            <div className="chat-panel">
+              <div className="chatbot-container">
+                <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
+              </div>
+            </div>
           </div>
-          <Footer />
-        </>
+          {showStatusModal && <StatusModal />}
+        </div>
       )}
     </>
   );
