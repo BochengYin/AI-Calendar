@@ -144,6 +144,20 @@ AI-Calendar/
 └── README.md            # Project documentation
 ```
 
+## Privacy Policy
+
+We take your privacy seriously. This application:
+
+- **Collects minimal data**: Only your email address (for authentication) and calendar events you create
+- **No data sharing**: Your personal information is never shared with third parties
+- **Third-party services**: We use Supabase (authentication & database) and OpenAI API (AI assistant)
+- **Data usage**: Information is used solely for providing calendar services to you
+- **Data deletion**: You can delete your account and all associated data at any time
+
+For complete details, visit our [Privacy Policy](/privacy) page in the application.
+
+**By using this application, you agree to our privacy policy. We only use your email for authentication purposes and do not share your data.**
+
 ## Contributing
 
 1. Fork the repository

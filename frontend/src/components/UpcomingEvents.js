@@ -46,24 +46,24 @@ export const UpcomingEvents = ({ events }) => {
 
               return (
                 <div key={event.id || index} className={cardClassName}>
-                  <div className="event-date">
-                    <div className="event-day">
-                      {moment(event.start).format('DD')}
-                    </div>
-                    <div className="event-month">
-                      {moment(event.start).format('MMM')}
-                    </div>
+                <div className="event-date">
+                  <div className="event-day">
+                    {moment(event.start).format('DD')}
                   </div>
-                  <div className="event-details">
-                    <div className="event-title" style={titleStyle}>{event.title}</div>
-                    <div className="event-time">
-                      {moment(event.start).format('HH:mm')} - {moment(event.end).format('HH:mm')}
-                    </div>
-                    <div className="event-description">
-                      {event.description}
-                    </div>
+                  <div className="event-month">
+                    {moment(event.start).format('MMM')}
                   </div>
                 </div>
+                <div className="event-details">
+                    <div className="event-title" style={titleStyle}>{event.title}</div>
+                  <div className="event-time">
+                    {moment(event.start).format('HH:mm')} - {moment(event.end).format('HH:mm')}
+                  </div>
+                  <div className="event-description">
+                    {event.description}
+                  </div>
+                </div>
+              </div>
               );
             })
           ) : (

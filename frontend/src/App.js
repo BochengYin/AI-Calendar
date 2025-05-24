@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Calendar } from './components/Calendar';
 import { Chatbot } from './components/Chatbot';
 import { UpcomingEvents } from './components/UpcomingEvents';
 import { Auth } from './components/Auth';
+import Privacy from './components/Privacy';
+import Footer from './components/Footer';
 import { useAuth } from './context/AuthContext';
 import './index.css';
 import axios from 'axios';
@@ -12,7 +15,8 @@ import { v4 as uuidv4 } from 'uuid';
 // Backend API URL - easier to change if needed
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:12345';
 
-function App() {
+// Main calendar application component
+const CalendarApp = () => {
   const { user, loading: authLoading, signOut } = useAuth();
   const [events, setEvents] = useState([]);
   const [forceCalendarRefresh, setForceCalendarRefresh] = useState(0);
@@ -328,51 +332,71 @@ function App() {
 
   // User is authenticated, show the app
   return (
-    <div className="App">
+    <>
       <div className="experimental-banner">
         This is an experimental product. Please do not share any sensitive information.
       </div>
       {!user && !authLoading ? (
-        <Auth />
+        <>
+          <Auth />
+          <Footer />
+        </>
       ) : (
-        <div className="main-layout">
-          <header className="app-header">
-            <div className="logo-and-title">
-              <h1>AI Calendar</h1>
-            </div>
-            {user && (
-              <div className="user-info">
-                <span>{user.email}</span>
-                <button onClick={signOut} className="signout-button">Sign Out</button>
-                <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
+        <>
+          <div className="main-layout">
+            <header className="app-header">
+              <div className="logo-and-title">
+                <h1>AI Calendar</h1>
+              </div>
+              {user && (
+                <div className="user-info">
+                  <span>{user.email}</span>
+                  <button onClick={signOut} className="signout-button">Sign Out</button>
+                  <button onClick={() => setShowStatusModal(true)} className="system-status-button">System Status</button>
+                </div>
+              )}
+            </header>
+            {refreshError && (
+              <div className="error-banner">
+                {refreshError}
+                <button onClick={fetchEvents}>Retry</button>
               </div>
             )}
-          </header>
-          {refreshError && (
-            <div className="error-banner">
-              {refreshError}
-              <button onClick={fetchEvents}>Retry</button>
-            </div>
-          )}
-          <div className="main-content">
-            <div className="left-panel">
-              <div className="upcoming-events-container">
-                <UpcomingEvents events={events} />
+            <div className="main-content">
+              <div className="left-panel">
+                <div className="upcoming-events-container">
+                  <UpcomingEvents events={events} />
+                </div>
+              </div>
+              <div className="calendar-container">
+                <Calendar events={events} onEventsChange={handleEventsChange} user={user} forceRefresh={forceCalendarRefresh} />
+              </div>
+              <div className="chat-panel">
+                <div className="chatbot-container">
+                  <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
+                </div>
               </div>
             </div>
-            <div className="calendar-container">
-              <Calendar events={events} onEventsChange={handleEventsChange} user={user} forceRefresh={forceCalendarRefresh} />
-            </div>
-            <div className="chat-panel">
-              <div className="chatbot-container">
-                <Chatbot onEventAdded={handleChatResponse} userId={user.id} userEmail={user.email} />
-              </div>
-            </div>
+            {showStatusModal && <StatusModal />}
           </div>
-          {showStatusModal && <StatusModal />}
-        </div>
+          <Footer />
+        </>
       )}
-    </div>
+    </>
+  );
+};
+
+// Main App component with routing
+function App() {
+  return (
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/" element={<CalendarApp />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

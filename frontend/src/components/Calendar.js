@@ -261,7 +261,7 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
       }
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
+        alert(`Error deleting event: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -367,23 +367,23 @@ export const Calendar = ({ events, onEventsChange, user, forceRefresh: externalF
     <div className="calendar-view">
       <h2 className="text-center mb-4">AI Calendar</h2>
       <div className="calendar-scroll-container">
-        <BigCalendar
+      <BigCalendar
           key={calendarKey}
-          localizer={localizer}
-          events={calendarEvents}
-          startAccessor="start"
-          endAccessor="end"
+        localizer={localizer}
+        events={calendarEvents}
+        startAccessor="start"
+        endAccessor="end"
           style={{ height: '800px', minHeight: '600px' }}
-          components={{
+        components={{
             event: EventComponent,
             toolbar: CustomToolbar
-          }}
-          eventPropGetter={eventStyleGetter}
-          onSelectEvent={handleSelectEvent}
-          onSelectSlot={handleSelectSlot}
-          selectable={true}
-          popup
-        />
+        }}
+        eventPropGetter={eventStyleGetter}
+        onSelectEvent={handleSelectEvent}
+        onSelectSlot={handleSelectSlot}
+        selectable={true}
+        popup
+      />
       </div>
       
       {selectedEvent && (

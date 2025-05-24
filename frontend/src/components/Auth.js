@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../supabase/client';
 
 export const Auth = ({ onAuthenticated }) => {
@@ -10,6 +11,7 @@ export const Auth = ({ onAuthenticated }) => {
   const [initError, setInitError] = useState(null);
   const [debugInfo, setDebugInfo] = useState('');
   const [loginAttempted, setLoginAttempted] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
   // Check if Supabase is properly initialized
   useEffect(() => {
@@ -56,6 +58,11 @@ export const Auth = ({ onAuthenticated }) => {
     
     if (!email || !email.includes('@')) {
       setMessage('Please enter a valid email address');
+      return;
+    }
+    
+    if (!agreedToPrivacy) {
+      setMessage('Please read and agree to our Privacy Policy to continue');
       return;
     }
     
@@ -197,10 +204,31 @@ export const Auth = ({ onAuthenticated }) => {
               />
             </div>
             
+            <div className="privacy-agreement" style={{ margin: '20px 0' }}>
+              <div className="checkbox-container">
+                <input
+                  type="checkbox"
+                  id="privacy-agreement"
+                  checked={agreedToPrivacy}
+                  onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+                  disabled={loading}
+                />
+                <label htmlFor="privacy-agreement" className="checkbox-label">
+                  I have read and agree to the{' '}
+                  <Link to="/privacy" className="privacy-link" target="_blank" rel="noopener noreferrer">
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
+              <p className="privacy-note">
+                We only use your email for authentication and do not share your data with third parties.
+              </p>
+            </div>
+            
             <button 
               type="submit" 
               className="btn btn-primary auth-button"
-              disabled={loading}
+              disabled={loading || !agreedToPrivacy}
             >
               {loading ? 'Sending...' : 'Send Verification Code'}
             </button>
